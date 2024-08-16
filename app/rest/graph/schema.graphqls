@@ -1,0 +1,24 @@
+type Order {
+  hash: String!
+  number: String!
+  time: String!
+  parentHash: String!
+  difficulty: String!
+  gasUsed: String!
+  gasLimit: String!
+  nonce: String!
+  miner: String!
+  size: Float!
+  stateRootHash: String!
+  uncleHash: String!
+  txRootHash: String!
+  receiptRootHash: String!
+  extraData: String!
+}
+
+type Query {
+  orderByHash(hash: String!): Order!
+  orderByNumber(number: String!): Order!
+  ordersByNumberRange(from: String!, to: String!): [Order!]!
+  ordersByTimeRange(from: String!, to: String!): [Order!]!
+}
