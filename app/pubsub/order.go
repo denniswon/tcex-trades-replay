@@ -3,30 +3,29 @@ package pubsub
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"sync"
 	"time"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/websocket"
-	"gorm.io/gorm"
 )
 
 // OrderConsumer - To be subscribed to `order` topic using this consumer handle
 // and client connected using websocket needs to be delivered this piece of data
 type OrderConsumer struct {
 	Client     *redis.Client
-	Requests   map[string]*SubscriptionRequest
+	Request    *SubscriptionRequest
 	Connection *websocket.Conn
 	PubSub     *redis.PubSub
-	DB         *gorm.DB
 	ConnLock   *sync.Mutex
 	TopicLock  *sync.RWMutex
 }
 
 // Subscribe - Subscribe to `order` channel
 func (b *OrderConsumer) Subscribe() {
-	b.PubSub = b.Client.Subscribe(context.Background(), "order")
+	b.PubSub = b.Client.Subscribe(context.Background(), b.Request.ID)
 }
 
 // Listen - Listener function, which keeps looping in infinite loop
@@ -44,15 +43,15 @@ func (b *OrderConsumer) Listen() {
 
 		case *redis.Subscription:
 
-			// Pubsub broker informed we've been unsubscribed from
-			// this topic
+			// Pubsub broker informed we've been unsubscribed from this topic
 			if m.Kind == "unsubscribe" {
 				return
 			}
 
 			b.SendData(&SubscriptionResponse{
 				Code:    1,
-				Message: "Subscribed to `order`",
+				ID:      m.Channel,
+				Message: fmt.Sprintf("Subscribed to `%s`", m.Channel),
 			})
 
 		case *redis.Message:
@@ -67,44 +66,11 @@ func (b *OrderConsumer) Listen() {
 // connected over websocket
 func (b *OrderConsumer) Send(msg string) {
 
-	var request *SubscriptionRequest
-
-	// -- Shared memory being read from concurrently
-	// running thread of execution, with lock
-	b.TopicLock.RLock()
-
-	for _, v := range b.Requests {
-
-		request = v
-		break
-
-	}
-
-	b.TopicLock.RUnlock()
-	// -- Shared memory reading done, lock released
-
-	// Can't proceed with this anymore, because failed to find
-	// respective subscription request
-	if request == nil {
-		return
-	}
-
 	var order struct {
-		Hash                string  `json:"hash"`
-		Number              uint64  `json:"number"`
-		Time                uint64  `json:"time"`
-		ParentHash          string  `json:"parentHash"`
-		Difficulty          string  `json:"difficulty"`
-		GasUsed             uint64  `json:"gasUsed"`
-		GasLimit            uint64  `json:"gasLimit"`
-		Nonce               string  `json:"nonce"`
-		Miner               string  `json:"miner"`
-		Size                float64 `json:"size"`
-		StateRootHash       string  `json:"stateRootHash"`
-		UncleHash           string  `json:"uncleHash"`
-		TransactionRootHash string  `json:"txRootHash"`
-		ReceiptRootHash     string  `json:"receiptRootHash"`
-		ExtraData           string  `json:"extraData"`
+		Price               float64 `json:"price"`
+		Quantity            uint64  `json:"quantity"`
+		Aggressor           string  `json:"aggressor"`
+		Timestamp      	    uint64  `json:"timestamp"`
 	}
 
 	_msg := []byte(msg)
@@ -132,7 +98,7 @@ func (b *OrderConsumer) SendData(data interface{}) bool {
 	defer b.ConnLock.Unlock()
 
 	if err := b.Connection.WriteJSON(data); err != nil {
-		log.Printf("[!] Failed to deliver `order` data to client : %s\n", err.Error())
+		log.Printf("[!] Failed to deliver order data for request %s : %s\n", b.Request.ID, err.Error())
 		return false
 	}
 
@@ -147,14 +113,14 @@ func (b *OrderConsumer) Unsubscribe() {
 		return
 	}
 
-	if err := b.PubSub.Unsubscribe(context.Background(), "order"); err != nil {
-		log.Printf("[!] Failed to unsubscribe from `order` topic : %s\n", err.Error())
+	if err := b.PubSub.Unsubscribe(context.Background(), b.Request.ID); err != nil {
+		log.Printf("[!] Failed to unsubscribe from topic %s : %s\n", b.Request.ID, err.Error())
 		return
 	}
 
 	resp := &SubscriptionResponse{
 		Code:    1,
-		Message: "Unsubscribed from `order`",
+		Message: fmt.Sprintf("Unsubscribed from `%s`", b.Request.ID),
 	}
 
 	// -- Critical section of code begins
@@ -166,7 +132,7 @@ func (b *OrderConsumer) Unsubscribe() {
 
 	if err := b.Connection.WriteJSON(resp); err != nil {
 
-		log.Printf("[!] Failed to deliver `order` unsubscription confirmation to client : %s\n", err.Error())
+		log.Printf("[!] Failed to deliver unsubscription confirmation for request %s : %s\n", b.Request.ID, err.Error())
 		return
 
 	}

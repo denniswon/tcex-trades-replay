@@ -6,15 +6,14 @@ import (
 
 	c "github.com/denniswon/tcex/app/client"
 	cfg "github.com/denniswon/tcex/app/config"
-	d "github.com/denniswon/tcex/app/data"
 	q "github.com/denniswon/tcex/app/queue"
+	d "github.com/denniswon/tcex/app/redis"
 	"github.com/gammazero/workerpool"
-	"gorm.io/gorm"
 )
 
 // SubscribeToNewOrders - Listen for new order header available, then fetch order content
 // including all transactions in different worker
-func SubscribeToNewOrders(orderClient *c.OrderClient, _db *gorm.DB, status *d.StatusHolder, redis *d.RedisInfo, queue *q.OrderReplayQueue) {
+func SubscribeToNewOrders(orderClient *c.OrderClient, redis *d.RedisInfo, queue *q.OrderReplayQueue) {
 	ordersChan := make(chan d.Orders)
 
 	orderClient.Start(ordersChan)
@@ -35,13 +34,6 @@ func SubscribeToNewOrders(orderClient *c.OrderClient, _db *gorm.DB, status *d.St
 
 		case orders := <-ordersChan:
 
-			latestOrder := orders.Orders[len(orders.Orders) - 1]
-			status.SetLatestOrderNumber(latestOrder.Number)
-			queue.Latest(latestOrder.Number)
-
-			// Starting now, to be used for calculating system performance, uptime etc.
-			status.SetStartedAt()
-
 			// Receive orders as a batch and that job submitted in job queue
 			//
 			// Putting it in a different function scope so that job submitter gets its own copy of orders,
@@ -52,7 +44,7 @@ func SubscribeToNewOrders(orderClient *c.OrderClient, _db *gorm.DB, status *d.St
 				// while finally considering it confirmed & put into DB
 				if nxt, ok := _queue.PublishedNext(); ok {
 
-					log.Printf("Processing order %d [ Latest Order : %d]\n", nxt, status.GetLatestOrderNumber())
+					log.Printf("Processing order %d\n", nxt)
 
 					// Note, we are taking `next` variable's copy in local scope of closure, so that during
 					// iteration over queue elements, none of them get missed, becuase in a concurrent system,
@@ -61,14 +53,7 @@ func SubscribeToNewOrders(orderClient *c.OrderClient, _db *gorm.DB, status *d.St
 
 						wp.Submit(func() {
 
-							if !FetchOrderByNumber(connection.RPC, _oldestOrder, _db, redis, queue, status) {
-
-								_queue.ConfirmedFailed(_oldestOrder)
-								return
-
-							}
-
-							_queue.ConfirmedDone(_oldestOrder)
+							ProcessOrders(order, redis, queue)
 
 						})
 
@@ -79,7 +64,6 @@ func SubscribeToNewOrders(orderClient *c.OrderClient, _db *gorm.DB, status *d.St
 				wp.Submit(func() {
 
 					_queue.Put(&orders)
-					_queue.UnconfirmedDone(orderNumber)
 
 				})
 

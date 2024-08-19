@@ -8,11 +8,11 @@ import (
 
 // Order - Order related info to be delivered to client in this format
 type Order struct {
-	Filename            string  `json:"filename" gorm:"column:filename"`
-	Price               float64 `json:"price" gorm:"column:price"`
-	Quantity            uint64  `json:"quantity" gorm:"column:quantity"`
-	Aggressor           string  `json:"aggressor" gorm:"column:aggressor"`
-	Timestamp           uint64  `json:"timestamp" gorm:"column:timestamp"`
+	RequestId           string  `json:"request_id"`
+	Price               float64 `json:"price"`
+	Quantity            uint64  `json:"quantity"`
+	Aggressor           string  `json:"aggressor"`
+	Timestamp           uint64  `json:"timestamp"`
 }
 
 // MarshalBinary - Implementing binary marshalling function, to be invoked
@@ -23,8 +23,8 @@ func (b *Order) MarshalBinary() ([]byte, error) {
 
 // MarshalJSON - Custom JSON encoder
 func (b *Order) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`{"filename":%s,"price":%.2f,"quantity":%d,"aggressor":%s,"timestamp":%d}`,
-		b.Filename,
+	return []byte(fmt.Sprintf(`{"request_id":%s,"price":%.2f,"quantity":%d,"aggressor":%s,"timestamp":%d}`,
+		b.RequestId,
 		b.Price,
 		b.Quantity,
 		b.Aggressor,

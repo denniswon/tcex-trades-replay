@@ -3,117 +3,200 @@ package client
 import (
 	"bufio"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"sync"
-	"time"
 
-	d "github.com/denniswon/tcex/app/data"
+	d "github.com/denniswon/tcex/app/redis"
 )
+
+type Request struct {
+	RequestId 	string
+	Filename 		string
+	ReplayRate 	uint64
+}
+
+func (b *Request) Validate() bool {
+	return b.Filename != "" && b.ReplayRate > 0 && b.RequestId != ""
+}
+
+func (b *Request) String() string {
+	return fmt.Sprintf(`{"request_id":%s,"filename":%s,"replay_rate":%d}`,
+		b.RequestId,
+		b.Filename,
+		b.ReplayRate,
+	)
+}
+
+type RequestError struct {
+	RequestId string
+	Error   	  error
+}
 
 // Client defines typed wrappers for the Ethereum RPC API.
 type OrderClient struct {
-	file 							*os.File;
-	scanner 					*bufio.Scanner;
-	mutex 						*sync.RWMutex
 	stopped     			bool
+	requests 					map[string]Request
+	files 						map[string]*os.File
+	requestChannel 		chan string
+	orderChannel 			chan d.Order
 	stopChannel 			chan string
-	errorChannel		 	chan error
-	batchSize 			uint64
-	orderNumber 			uint64
-	interval    			time.Duration // The interval with which to run the Action
-	period      			time.Duration // The actual period of the wait
+	errorChannel		 	chan RequestError
+	mutex 						*sync.RWMutex
 }
 
 // NewClient creates a client that uses the given RPC client.
-func NewOrderClient(interval time.Duration, batchSize uint64) *OrderClient {
+func NewOrderClient() *OrderClient {
 	client := &OrderClient{
 		stopped:					false,
 		stopChannel: 			make(chan string),
-		errorChannel: 		make(chan error),
-		interval:   			interval,
-		period:     			interval,
-		batchSize: 				batchSize,
+		errorChannel: 		make(chan RequestError),
+		orderChannel: 		make(chan d.Order, 128),
+		requests: 				make(map[string]Request),
+		requestChannel: 	make(chan string, 128),
 		mutex:      			&sync.RWMutex{},
 	}
-
-	initialized := client.Load("trades.txt")
-	if !initialized {
-		log.Println("Failed to initialize order client")
-		return nil
-	}
-
 	return client
 }
 
-func (c *OrderClient) Load(filename string) bool {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+func (c *OrderClient) Put(request Request) bool {
+	if c.IsStopped()|| !request.Validate() {
+		return false
+	}
+	c.requests[request.RequestId] = request
+	c.requestChannel <- request.RequestId
+	return true
+}
 
-	if c.file == nil {
-		file, err := os.Open(filename)
-		if err != nil {
-			log.Println("Error opening file:", err)
-			return false
+func (c *OrderClient) Run() {
+
+	log.Println("Worker Started")
+
+	for {
+		select {
+		case requestId := <-c.requestChannel:
+			if err := c.HandleRequest(requestId); err != nil {
+				c.Err(requestId, err)
+			}
+			// This breaks out of the select, not the for loop.
+			break
+		case <-c.stopChannel:
+			c.stopChannel <- "Stop"
+			return
 		}
-		c.file = file
-	} else {
-		c.file.Seek(0, 0)	// move to beginning of the file
+	}
+}
+
+func (c *OrderClient) HandleRequest(requestId string) error {
+	request, ok := c.requests[requestId]
+
+	if !ok {
+		return errors.New(fmt.Sprintf("Missing request for request id: %s", requestId))
 	}
 
-	c.scanner = bufio.NewScanner(c.file)
+	log.Printf("Reading input file for request id: %s\n", request.String())
+
+	if c.files[request.Filename] == nil {
+		file, err := os.Open(request.Filename)
+		if err != nil {
+			log.Fatalf("Error opening file: %s\n", err.Error())
+			return err
+		}
+		c.files[request.Filename] = file
+	}
+
+	return c.ProcessRequest(request)
+}
+
+func (c *OrderClient) ProcessRequest(request Request) error {
+	if c.files[request.Filename] == nil {
+		return errors.New(fmt.Sprintf("Missing file: %s", request.Filename))
+	}
+
+	file := c.files[request.Filename]
+	scanner := bufio.NewScanner(file)
 
 	scanLines := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 		advance, token, err = bufio.ScanLines(data, atEOF)
 		return advance, token, err
 	}
-	c.scanner.Split(scanLines)
+	scanner.Split(scanLines)
 
-	c.orderNumber = 0
+	for scanner.Scan() {
 
-	return true
-}
-
-func (c *OrderClient) Start(ordersChannel chan d.Orders) {
-	log.Println("Worker Started")
-
-	for {
-		select {
-		case <-c.errorChannel:
-			c.Stop()
-			break
-		case <-c.stopChannel:
-			c.stopChannel <- "Stop"
-			return
-		case <-time.After(c.period):
-			// This breaks out of the select, not the for loop.
-			break
+		if c.IsStopped() {
+			return nil
 		}
 
-		started := time.Now()
-		c.Receive(ordersChannel)
-		finished := time.Now()
+		var order d.Order
+		err := json.Unmarshal([]byte(scanner.Text()), &order)
+		if err != nil {
+			log.Printf("Failed to decode order data to JSON : %s\n", err.Error())
+			return err
+		}
 
-		duration := finished.Sub(started)
-		c.period = c.interval - duration
+		order.RequestId = request.RequestId
+		c.orderChannel <- order
 	}
-}
 
-func (c *OrderClient) Err() chan error {
-	return c.errorChannel
+	return nil
 }
 
 func (c *OrderClient) Stop() {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
+	if c.IsStopped() {
+		return
+	}
 
 	c.stopped = true
 
 	c.stopChannel <- "Stop"
 	<-c.stopChannel
+}
+
+func (c *OrderClient) Close() {
+	if !c.IsStopped() {
+		return
+	}
+
+
+	for k := range c.requests {
+		delete(c.requests, k)
+	}
+
+	for k := range c.files {
+		_ = c.files[k].Close()
+		delete(c.files, k)
+	}
 
 	close(c.stopChannel)
-	c.file.Close()
+	close(c.errorChannel)
+	close(c.orderChannel)
+	close(c.requestChannel)
+}
+
+func (c *OrderClient) Err(requestId string, err error) {
+	request, ok := c.requests[requestId]
+	if !ok {
+		return
+	}
+
+	delete(c.requests, requestId)
+	delete(c.files, request.Filename)
+
+	c.errorChannel <- RequestError {
+		RequestId: requestId,
+		Error: err,
+	}
+}
+
+func (c *OrderClient) OrderChannel() chan d.Order {
+	return c.orderChannel
+}
+
+func (c *OrderClient) ErrorChannel() chan RequestError {
+	return c.errorChannel
 }
 
 func (c *OrderClient) IsStopped() bool {
@@ -121,59 +204,4 @@ func (c *OrderClient) IsStopped() bool {
 	defer c.mutex.RUnlock()
 
 	return c.stopped
-}
-
-func (c *OrderClient) Receive(ordersChannel chan d.Orders) {
-	orders := []*d.Order{}
-
-	for i:=0; i < int(c.batchSize); i++ {
-
-		order, err := c.Next()
-
-		if err != nil {
-			log.Printf("[!] Failed to get next order : %s\n", err.Error())
-			c.errorChannel <- err
-			continue
-		}
-
-		if order == nil {
-			log.Println("Done reading trades.txt")
-			c.Stop()
-			break
-		}
-
-		orders = append(orders, order)
-
-	}
-
-	ordersChannel <- d.Orders{Orders: orders}
-}
-
-func (c *OrderClient) Next() (*d.Order, error) {
-	c.mutex.RLock()
-	defer c.mutex.RUnlock()
-
-	if c.IsStopped() {
-		return nil, nil
-	}
-
-	if !c.scanner.Scan() {
-		return nil, c.scanner.Err()
-	}
-
-	var order d.Order
-
-	text := c.scanner.Text()
-	_text := []byte(text)
-
-	err := json.Unmarshal(_text, &order)
-	if err != nil {
-		log.Printf("[!] Failed to decode order data to JSON : %s\n", err.Error())
-		return nil, err
-	}
-
-	order.Number = c.orderNumber
-	c.orderNumber++
-
-	return &order, nil
 }

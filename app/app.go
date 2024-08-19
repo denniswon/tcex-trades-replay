@@ -7,7 +7,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	o "github.com/denniswon/tcex/app/order"
 	"github.com/gookit/color"
 
 	"github.com/denniswon/tcex/app/rest"
@@ -17,7 +16,7 @@ import (
 func Run(configFile string) {
 
 	ctx, cancel := context.WithCancel(context.Background())
-	_orderClient, _redisClient, _redisInfo, _db, _status, _queue := bootstrap(configFile)
+	_orderClient, _redisClient, _queue := bootstrap(configFile)
 
 	// Attempting to listen to Ctrl+C signal
 	// and when received gracefully shutting down the service
@@ -39,18 +38,7 @@ func Run(configFile string) {
 		// @note This can ( needs to ) be improved
 		cancel()
 
-		sql, err := _db.DB()
-		if err != nil {
-			log.Print(color.Red.Sprintf("[!] Failed to get underlying DB connection : %s", err.Error()))
-			return
-		}
-
-		if err := sql.Close(); err != nil {
-			log.Print(color.Red.Sprintf("[!] Failed to close underlying DB connection : %s", err.Error()))
-			return
-		}
-
-		if err := _redisInfo.Client.Close(); err != nil {
+		if err := _redisClient.Close(); err != nil {
 			log.Print(color.Red.Sprintf("[!] Failed to close connection to Redis : %s", err.Error()))
 			return
 		}
@@ -63,9 +51,6 @@ func Run(configFile string) {
 
 	go _queue.Start(ctx)
 
-	// Pushing order header propagation listener to another thread of execution
-	go o.SubscribeToNewOrders(_orderClient, _db, _status, _redisInfo, _queue)
-
 	// Starting http server on main thread
-	rest.RunHTTPServer(_db, _status, _redisClient)
+	rest.RunHTTPServer(_orderClient, _queue, _redisClient)
 }

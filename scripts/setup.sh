@@ -25,22 +25,6 @@ if [ "$machine" == "Mac" ]; then
 
     # Install Postgres
     brew tap homebrew/core
-    brew list postgresql || brew install postgresql
-
-    brew services restart postgresql
-
-    # Create a user 'postgres'. psql -U postgres to login to postgres locally
-    createuser -s postgres
-    # Create db. indexer is the db name in .env
-    createdb -U postgres -w indexer
-    # enable pgcrypto extension
-    psql -d indexer -U postgres -c "CREATE EXTENSION pgcrypto;"
-
-    # Optional: create a password for postgres with MD5 authentication
-    # First create password for user `psql -d indexer -U postgres`
-    # then set password by \password command
-    # Finally, on `/opt/homebrew/var/postgresql@14/pg_hba.conf`, change each ident/trust to md5
-    # Then, restart postgres with `brew services restart postgresql`
 
     # Install Redis
     # Install Postgres

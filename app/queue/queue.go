@@ -4,29 +4,24 @@ import (
 	"context"
 	"time"
 
-	d "github.com/denniswon/tcex/app/data"
+	d "github.com/denniswon/tcex/app/redis"
 )
 
 // You don’t have unlimited resource on your machine, the minimal size of a goroutine object is 2 KB,
 // when you spawn too many goroutine, your machine will quickly run out of memory and the CPU will keep processing
 // the task until it reach the limit. By using limited pool of workers and keep the task on the queue,
 // we can reduce the burst of CPU and memory since the task will wait on the queue until the the worker pull the task.
-
-// Order - Keeps track of single order i.e. how many
-// times attempted till date, last attempted to process
-// whether order data has been published on pubsub topic or not,
-// is order processing currently
-type Order struct {
+type Status struct {
 	Inserted            	bool // 1. Order data inserted to queue
 	Published           	bool // 2. Pub/Sub publishing
-	ExecuteTime       		time.Time
 }
 
 // Request - Any request to be placed into queue's channels in this form
 // client can also receive response/ confirmation over channel that they specify
 type Request struct {
-	Order  				uint64
-	Timestamp 		time.Time
+	Order  				d.Order
+	Filename			string
+	ExecuteTime 	time.Time
 	ResponseChan 	chan bool
 }
 
@@ -67,7 +62,7 @@ type OrderReplayQueue struct {
 }
 
 // New - Getting new instance of queue, to be invoked during setting up application
-func New(startingWith uint64) *OrderReplayQueue {
+func New() *OrderReplayQueue {
 
 	return &OrderReplayQueue{
 		Orders:                make(map[uint64]*Order),
