@@ -1,29 +1,28 @@
 package order
 
 import (
+	d "github.com/denniswon/tcex/app/data"
 	q "github.com/denniswon/tcex/app/queue"
-	d "github.com/denniswon/tcex/app/redis"
+	"github.com/go-redis/redis/v8"
 )
 
-// ProcessOrders - Processes orders batch
-func ProcessOrders(order *d.Order, redis *d.RedisInfo, queue *q.OrderReplayQueue) bool {
+// PublishReplayOrder - Attempts to process order data from Redis pubsub channel
+func PublishReplayOrder(orderId string, order *d.Order, queue *q.PublishQueue, redis *redis.Client) bool {
 
 	// -- 3 step pub/sub attempt
-	//
-	// Attempting to publish whole order data to redis pubsub channel
 
 	// 1. Asking queue whether we need to publish order or not
-	if !queue.CanPublish(order.Number) {
+	if !queue.CanPublish(orderId) {
 		return false
 	}
 
 	// 2. Attempting to publish order on Pub/Sub topic
-	if !PublishOrder(order, redis) {
+	if !PublishOrder(orderId, order, redis) {
 		return false
 	}
 
 	// 3. Marking this order as published
-	if !queue.Published(order.Number) {
+	if !queue.Published(orderId) {
 		return false
 	}
 

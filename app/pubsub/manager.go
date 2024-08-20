@@ -5,7 +5,6 @@ import (
 	"sync"
 
 	"github.com/go-redis/redis/v8"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -27,14 +26,6 @@ func (s *SubscriptionManager) Subscribe(req *SubscriptionRequest) {
 
 	s.TopicLock.Lock()
 	defer s.TopicLock.Unlock()
-
-	req.ID = uuid.New().String()
-	if req.Filename == "" {
-		req.Filename = "trades.txt"
-	}
-	if req.ReplayRate == 0 {
-		req.ReplayRate = 60
-	}
 
 	_, ok := s.Topics[req.ID]
 	if !ok {

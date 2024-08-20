@@ -3,14 +3,11 @@ package rest
 import (
 	"fmt"
 	"log"
-	"strings"
 	"sync"
 
 	"github.com/gin-contrib/cors"
 
-	c "github.com/denniswon/tcex/app/client"
 	cfg "github.com/denniswon/tcex/app/config"
-	o "github.com/denniswon/tcex/app/order"
 	ps "github.com/denniswon/tcex/app/pubsub"
 	q "github.com/denniswon/tcex/app/queue"
 	"github.com/gin-gonic/gin"
@@ -19,20 +16,7 @@ import (
 )
 
 // RunHTTPServer - Holds definition for all REST API(s) to be exposed
-func RunHTTPServer(_orderClient *c.OrderClient, _queue *q.OrderReplayQueue, _redisClient *redis.Client) {
-
-	// Checking if webserver in production mode or not
-	checkIfInProduction := func() bool {
-		return strings.ToLower(cfg.Get("Production")) == "yes"
-	}
-
-	// Running in production/ debug mode depending upon
-	// config specified in .env file
-	if checkIfInProduction() {
-		gin.SetMode(gin.ReleaseMode)
-	} else {
-		gin.SetMode(gin.DebugMode)
-	}
+func RunHTTPServer(_queue *q.OrderQueue, _redis *redis.Client) {
 
 	router := gin.Default()
 
@@ -73,14 +57,12 @@ func RunHTTPServer(_orderClient *c.OrderClient, _queue *q.OrderReplayQueue, _red
 
 		}()
 
-
-
 		// All topic subscription/ unsubscription requests
 		// to handled by this higher layer abstraction
 		pubsubManager := ps.SubscriptionManager{
 			Topics:     	make(map[string]*ps.SubscriptionRequest),
 			Consumers:  	make(map[string]ps.Consumer),
-			Redis:     		_redisClient,
+			Redis:     		_redis,
 			Connection: 	conn,
 			ConnLock:   	&connLock,
 			TopicLock:  	&topicLock,
@@ -113,16 +95,30 @@ func RunHTTPServer(_orderClient *c.OrderClient, _queue *q.OrderReplayQueue, _red
 
 			// Attempting to subscribe to/ unsubscribe from this topic
 			switch req.Type {
+
 			case "subscribe":
-				go o.SubscribeToNewOrders(_orderClient, _queue)
-				pubsubManager.Subscribe(&req)
+				request := req.Generate()
+				_queue.Put(&request)
+				pubsubManager.Subscribe(&request)
+
 			case "unsubscribe":
+				_queue.Remove(req.ID)
 				pubsubManager.Unsubscribe(&req)
+
 			}
 
 		}
 
+		for {
+
+			select {
+			case err := <-_queue.Err():
+				log.Fatalf("[!] Failed to process order %s: %s\n", err.RequestId, err.Err.Error())
+				pubsubManager.Unsubscribe(pubsubManager.Topics[err.RequestId])
+			}
+		}
+
 	})
 
-	router.Run(fmt.Sprintf(":%s", cfg.Get("PORT")))
+	router.Run(fmt.Sprintf(":%s", cfg.GetPort()))
 }

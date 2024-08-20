@@ -8,11 +8,10 @@ import (
 
 // Order - Order related info to be delivered to client in this format
 type Order struct {
-	RequestId           string  `json:"request_id"`
 	Price               float64 `json:"price"`
 	Quantity            uint64  `json:"quantity"`
 	Aggressor           string  `json:"aggressor"`
-	Timestamp           uint64  `json:"timestamp"`
+	Timestamp           int64  `json:"timestamp"`
 }
 
 // MarshalBinary - Implementing binary marshalling function, to be invoked
@@ -23,8 +22,7 @@ func (b *Order) MarshalBinary() ([]byte, error) {
 
 // MarshalJSON - Custom JSON encoder
 func (b *Order) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`{"request_id":%s,"price":%.2f,"quantity":%d,"aggressor":%s,"timestamp":%d}`,
-		b.RequestId,
+	return []byte(fmt.Sprintf(`{"price":%.2f,"quantity":%d,"aggressor":%s,"timestamp":%d}`,
 		b.Price,
 		b.Quantity,
 		b.Aggressor,

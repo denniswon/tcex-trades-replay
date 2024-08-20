@@ -9,6 +9,7 @@ import (
 
 	"github.com/gookit/color"
 
+	o "github.com/denniswon/tcex/app/order"
 	"github.com/denniswon/tcex/app/rest"
 )
 
@@ -16,7 +17,7 @@ import (
 func Run(configFile string) {
 
 	ctx, cancel := context.WithCancel(context.Background())
-	_orderClient, _redisClient, _queue := bootstrap(configFile)
+	orderQueue, publishQueue, _redis := bootstrap(configFile)
 
 	// Attempting to listen to Ctrl+C signal
 	// and when received gracefully shutting down the service
@@ -32,13 +33,10 @@ func Run(configFile string) {
 		// This call should be received in all places
 		// where root context is passed along
 		//
-		// But only it's being used in order processor queue
-		// go routine, as of now
-		//
 		// @note This can ( needs to ) be improved
 		cancel()
 
-		if err := _redisClient.Close(); err != nil {
+		if err := _redis.Close(); err != nil {
 			log.Print(color.Red.Sprintf("[!] Failed to close connection to Redis : %s", err.Error()))
 			return
 		}
@@ -49,8 +47,11 @@ func Run(configFile string) {
 
 	}()
 
-	go _queue.Start(ctx)
+	go orderQueue.Start(ctx)
+	defer orderQueue.Stop()
+
+	go o.ProcessOrderReplays(publishQueue, _redis)
 
 	// Starting http server on main thread
-	rest.RunHTTPServer(_orderClient, _queue, _redisClient)
+	rest.RunHTTPServer(orderQueue, _redis)
 }
