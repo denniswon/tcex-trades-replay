@@ -11,7 +11,7 @@ import (
 
 // Setting ground up i.e. acquiring resources required & determining with
 // some basic checks whether we can proceed to next step or not
-func bootstrap(configFile string) (*q.OrderQueue, *q.PublishQueue, *redis.Client) {
+func bootstrap(configFile string) (*q.RequestQueue, *q.ReplayQueue, *redis.Client) {
 
 	err := cfg.Read(configFile)
 	if err != nil {
@@ -27,9 +27,9 @@ func bootstrap(configFile string) (*q.OrderQueue, *q.PublishQueue, *redis.Client
 	}
 
 	// orders queue for fetching orders from the input file
-	orderQueue := q.NewOrderQueue(_redis)
+	requestQueue := q.NewRequestQueue(_redis)
 	// order replay publishing queue
-	publishQueue := q.NewPublishQueue()
+	replayQueue := q.NewReplayQueue()
 
-	return orderQueue, publishQueue, _redis
+	return requestQueue, replayQueue, _redis
 }

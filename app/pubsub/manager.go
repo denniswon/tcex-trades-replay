@@ -38,7 +38,7 @@ func (s *SubscriptionManager) Subscribe(req *SubscriptionRequest) {
 	s.Consumers[req.ID].SendData(
 		&SubscriptionResponse{
 			Code:    	1,
-			Message: 	fmt.Sprintf("Subscribed to `%s` (`x%d`)", req.Filename, req.ReplayRate),
+			Message: 	fmt.Sprintf("Subscription request for replay : `%s` (`x%d`)", req.Filename, req.ReplayRate),
 			ID:    		req.ID,
 		})
 }

@@ -17,7 +17,7 @@ import (
 func Run(configFile string) {
 
 	ctx, cancel := context.WithCancel(context.Background())
-	orderQueue, publishQueue, _redis := bootstrap(configFile)
+	requestQueue, replayQueue, _redis := bootstrap(configFile)
 
 	// Attempting to listen to Ctrl+C signal
 	// and when received gracefully shutting down the service
@@ -47,11 +47,8 @@ func Run(configFile string) {
 
 	}()
 
-	go orderQueue.Start(ctx)
-	defer orderQueue.Stop()
-
-	go o.ProcessOrderReplays(publishQueue, _redis)
+	go o.ProcessOrderReplays(ctx, requestQueue, replayQueue, _redis)
 
 	// Starting http server on main thread
-	rest.RunHTTPServer(orderQueue, _redis)
+	rest.RunHTTPServer(requestQueue, _redis)
 }

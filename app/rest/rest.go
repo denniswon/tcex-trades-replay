@@ -16,7 +16,7 @@ import (
 )
 
 // RunHTTPServer - Holds definition for all REST API(s) to be exposed
-func RunHTTPServer(_queue *q.OrderQueue, _redis *redis.Client) {
+func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client) {
 
 	router := gin.Default()
 
@@ -113,7 +113,7 @@ func RunHTTPServer(_queue *q.OrderQueue, _redis *redis.Client) {
 
 			select {
 			case err := <-_queue.Err():
-				log.Fatalf("[!] Failed to process order %s: %s\n", err.RequestId, err.Err.Error())
+				log.Fatalf("[!] Failed to process order %s : %s\n", err.RequestId, err.Err.Error())
 				pubsubManager.Unsubscribe(pubsubManager.Topics[err.RequestId])
 			}
 		}

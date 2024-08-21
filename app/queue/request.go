@@ -34,9 +34,13 @@ func (o *Order) ID() string {
 }
 
 
-type Error struct {
+type RequestError struct {
 	RequestId 	string
 	Err   	 		error
+}
+
+func (m *RequestError) Error() string {
+	return m.Err.Error()
 }
 
 type FileRef struct {
@@ -45,25 +49,24 @@ type FileRef struct {
 }
 
 // Client defines typed wrappers for the Ethereum RPC API.
-type OrderQueue struct {
+type RequestQueue struct {
 	stopped     			bool
 	requests 					map[string]*ps.SubscriptionRequest
 	files 						map[string]*FileRef
 	requestChannel 		chan string
-	orderChannel 			chan Order
 	stopChannel 			chan string
-	errorChannel		 	chan Error
+	orderChannel 			chan Order
+	errorChannel		 	chan RequestError
 	redis    					*redis.Client
 	mutex 						*sync.RWMutex
 }
 
 // NewClient creates a client that uses the given RPC client.
-func NewOrderQueue(_redis *redis.Client) *OrderQueue {
-	client := &OrderQueue{
+func NewRequestQueue(_redis *redis.Client) *RequestQueue {
+	client := &RequestQueue{
 		stopped:					false,
-		stopChannel: 			make(chan string),
-		errorChannel: 		make(chan Error),
-		orderChannel: 		make(chan Order),
+		stopChannel:      make(chan string, 1),
+		errorChannel: 		make(chan RequestError),
 		requestChannel: 	make(chan string),
 		files: 						make(map[string]*FileRef),
 		requests: 				make(map[string]*ps.SubscriptionRequest),
@@ -73,7 +76,7 @@ func NewOrderQueue(_redis *redis.Client) *OrderQueue {
 	return client
 }
 
-func (q *OrderQueue) Put(request *ps.SubscriptionRequest) bool {
+func (q *RequestQueue) Put(request *ps.SubscriptionRequest) bool {
 
 	if !request.Validate() {
 		q.Error(request.ID, fmt.Errorf("invalid request"))
@@ -86,7 +89,7 @@ func (q *OrderQueue) Put(request *ps.SubscriptionRequest) bool {
 	return true
 }
 
-func (q *OrderQueue) Remove(requestId string) {
+func (q *RequestQueue) Remove(requestId string) {
 
 	q.mutex.RLock()
 	defer q.mutex.RUnlock()
@@ -109,16 +112,13 @@ func (q *OrderQueue) Remove(requestId string) {
 
 }
 
-func (q *OrderQueue) Start(ctx context.Context) {
+func (q *RequestQueue) Start(orderChannel chan Order) {
 
-	log.Println("Worker Started")
+	log.Println("Request queue started")
+	q.orderChannel = orderChannel
 
 	for {
 		select {
-
-		case <-ctx.Done():
-			q.Close()
-			return
 
 		case requestId := <-q.requestChannel:
 			if err := q.HandleRequest(requestId); err != nil {
@@ -127,7 +127,7 @@ func (q *OrderQueue) Start(ctx context.Context) {
 
 		case <-q.stopChannel:
 
-			log.Println("Order Client Stopped.")
+			log.Println("Stopping request queue")
 
 			q.stopChannel <- "Stop"
 			return
@@ -136,19 +136,19 @@ func (q *OrderQueue) Start(ctx context.Context) {
 	}
 }
 
-func (q *OrderQueue) HandleRequest(requestId string) error {
+func (q *RequestQueue) HandleRequest(requestId string) error {
 	request, ok := q.requests[requestId]
 
 	if !ok {
-		return fmt.Errorf("missing request for request id: %s", requestId)
+		return fmt.Errorf("missing request for request id : %s", requestId)
 	}
 
-	log.Printf("Reading input file for request id: %s\n", request.String())
+	log.Printf("Reading input file for request id : %s\n", request.String())
 
 	if q.files[request.Filename] == nil {
 		file, err := os.Open(request.Filename)
 		if err != nil {
-			log.Fatalf("Error opening file: %s\n", err.Error())
+			log.Fatalf("Error opening file : %s\n", err.Error())
 			return err
 		}
 		q.files[request.Filename] = &FileRef{
@@ -156,31 +156,26 @@ func (q *OrderQueue) HandleRequest(requestId string) error {
 			RC:   1,
 		}
 	} else {
+
 		q.files[request.Filename].RC++
 	}
 
 	return q.Run(request)
 }
 
-func (q *OrderQueue) Run(request *ps.SubscriptionRequest) error {
+func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 	if q.files[request.Filename] == nil {
-		return fmt.Errorf("missing file: %s", request.Filename)
+		return fmt.Errorf("missing file : %s", request.Filename)
 	}
 
 	fref := q.files[request.Filename]
+	fref.File.Seek(0, 0)
 	scanner := bufio.NewScanner(fref.File)
 
-	scanLines := func(data []byte, atEOF bool) (advance int, token []byte, err error) {
-		advance, token, err = bufio.ScanLines(data, atEOF)
-		return advance, token, err
-	}
-	scanner.Split(scanLines)
-
 	var orderNumber uint64 = 0
-	var currTime int64 = time.Now().Unix()
+	var currTime int64 = time.Now().UnixMilli()
 	var indexTime int64 = 0
-	keys := []string{}
-	values := [][]byte{}
+	var pairs []interface{}
 	orders := []Order{}
 
 	for scanner.Scan() {
@@ -196,29 +191,32 @@ func (q *OrderQueue) Run(request *ps.SubscriptionRequest) error {
 			return err
 		}
 
-		keys = append(keys, fmt.Sprintf("%s:%d", request.ID, orderNumber))
-		values = append(values, order.ToJSON())
+		pairs = append(pairs, fmt.Sprintf("%s:%d", request.ID, orderNumber))
+		pairs = append(pairs, order.ToJSON())
 
 		if indexTime == 0 {
 			indexTime = order.Timestamp
 		}
 
+		log.Printf("!!!!!!! %f %d\n", float32(order.Timestamp - indexTime) / request.ReplayRate, int64(float32(order.Timestamp - indexTime) / request.ReplayRate))
 		orders = append(orders, Order {
 			RequestId: request.ID,
 			OrderNumber: orderNumber,
-			ExecuteTime: currTime + (order.Timestamp - indexTime),
+			ExecuteTime: currTime + int64(float32(order.Timestamp - indexTime) / request.ReplayRate),
 		})
 
 		orderNumber++
 
 	}
 
-	_, err := q.redis.MSet(context.Background(), keys, values, 0).Result()
-	if err != nil {
-		log.Fatalf("Failed to cache order for request %s order number %d: %s\n",
-			request.ID, orderNumber, err.Error(),
-		)
-		return err
+	if len(pairs) > 0 {
+		_, err := q.redis.MSet(context.Background(), pairs...).Result()
+		if err != nil {
+			log.Fatalf("Failed to cache order for request %s order number %d : %s\n",
+				request.ID, orderNumber, err.Error(),
+			)
+			return err
+		}
 	}
 
 	for _, order := range orders {
@@ -228,7 +226,7 @@ func (q *OrderQueue) Run(request *ps.SubscriptionRequest) error {
 	return nil
 }
 
-func (q *OrderQueue) Stop() {
+func (q *RequestQueue) Stop() {
 	q.mutex.RLock()
 	defer q.mutex.RUnlock()
 
@@ -237,12 +235,13 @@ func (q *OrderQueue) Stop() {
 	}
 
 	q.stopped = true
+	q.orderChannel = nil
 
 	q.stopChannel <- "Stop"
 	<-q.stopChannel
 }
 
-func (q *OrderQueue) Close() {
+func (q *RequestQueue) Close() {
 	if !q.IsStopped() {
 		q.Stop()
 	}
@@ -259,34 +258,38 @@ func (q *OrderQueue) Close() {
 		delete(q.files, k)
 	}
 
-	close(q.stopChannel)
-	close(q.errorChannel)
-	close(q.orderChannel)
-	close(q.requestChannel)
+	if q.stopChannel != nil {
+		close(q.stopChannel)
+		q.stopChannel = nil
+	}
+	if q.errorChannel != nil {
+		close(q.errorChannel)
+		q.errorChannel = nil
+	}
+	if q.requestChannel != nil {
+		close(q.requestChannel)
+		q.requestChannel = nil
+	}
 }
 
-func (q *OrderQueue) Error(requestId string, err error) {
+func (q *RequestQueue) Error(requestId string, err error) {
 	request, ok := q.requests[requestId]
 	if ok {
 		delete(q.requests, requestId)
 		delete(q.files, request.Filename)
 	}
 
-	q.errorChannel <- Error {
+	q.errorChannel <- RequestError {
 		RequestId: requestId,
 		Err: err,
 	}
 }
 
-func (q *OrderQueue) Order() chan Order {
-	return q.orderChannel
-}
-
-func (q *OrderQueue) Err() chan Error {
+func (q *RequestQueue) Err() chan RequestError {
 	return q.errorChannel
 }
 
-func (q *OrderQueue) IsStopped() bool {
+func (q *RequestQueue) IsStopped() bool {
 	q.mutex.RLock()
 	defer q.mutex.RUnlock()
 

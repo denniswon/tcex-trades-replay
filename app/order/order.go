@@ -7,7 +7,7 @@ import (
 )
 
 // PublishReplayOrder - Attempts to process order data from Redis pubsub channel
-func PublishReplayOrder(orderId string, order *d.Order, queue *q.PublishQueue, redis *redis.Client) bool {
+func PublishReplayOrder(orderId string, order *d.Order, queue *q.ReplayQueue, redis *redis.Client) bool {
 
 	// -- 3 step pub/sub attempt
 

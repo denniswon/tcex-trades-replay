@@ -67,10 +67,10 @@ func (b *OrderConsumer) Listen() {
 func (b *OrderConsumer) Send(msg string) {
 
 	var order struct {
-		Price               float64 `json:"price"`
-		Quantity            uint64  `json:"quantity"`
-		Aggressor           string  `json:"aggressor"`
-		Timestamp      	    uint64  `json:"timestamp"`
+		Price               string `json:"price"`
+		Quantity            uint64 `json:"quantity"`
+		Aggressor           string `json:"aggressor"`
+		Timestamp           int64  `json:"timestamp"`
 	}
 
 	_msg := []byte(msg)

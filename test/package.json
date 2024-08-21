@@ -1,0 +1,14 @@
+{
+  "name": "tcex-test",
+  "version": "1.0.0",
+  "description": "replay web server tests",
+  "main": "replay.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Jong Hyuck Won <jhwon0820@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "websocket": "^1.0.33"
+  }
+}

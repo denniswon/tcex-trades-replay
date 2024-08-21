@@ -3,6 +3,7 @@ package order
 import (
 	"context"
 	"log"
+	"strings"
 
 	d "github.com/denniswon/tcex/app/data"
 	"github.com/go-redis/redis/v8"
@@ -15,14 +16,21 @@ func PublishOrder(orderId string, order *d.Order, redis *redis.Client) bool {
 		return false
 	}
 
-	if err := redis.Publish(context.Background(), orderId, order).Err(); err != nil {
+	tokens := strings.Split(orderId, ":")
+	if len(tokens) != 2 {
+		log.Printf("Unexpected order id %s\n", orderId)
+		return false
+	}
 
-		log.Printf("Failed to publish order %d : %s\n", orderId, err.Error())
+	requestId := tokens[0]
+	if err := redis.Publish(context.Background(), requestId, order).Err(); err != nil {
+
+		log.Printf("Failed to publish order %s : %s\n", orderId, err.Error())
 		return false
 
 	}
 
-	log.Printf("📎 Published order %d\n", orderId)
+	log.Printf("📎 Published order %s\n", orderId)
 	return true
 
 }

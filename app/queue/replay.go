@@ -1,7 +1,8 @@
 package queue
 
 import (
-	"context"
+	"log"
+	"sync"
 	"time"
 )
 
@@ -12,8 +13,7 @@ import (
 type Status struct {
 	Order             		Order
 	Inserted            	bool // 1. Order data inserted to queue
-	CanPublish           	bool // 2. Replay the order
-	Published           	bool // 3. Pub/Sub publishing
+	Published           	bool // 2. Pub/Sub publishing
 }
 
 type PutRequest struct {
@@ -34,34 +34,40 @@ type Next struct {
 	ResponseChan chan struct {
 		Status bool
 		Order  string
+		Time   int64
 	}
 }
 
-// PublishQueue - concurrent safe queue to be interacted with before attempting to replay any order
-type PublishQueue struct {
+// ReplayQueue - concurrent safe queue to be interacted with before attempting to replay any order
+type ReplayQueue struct {
 	Orders                map[string]*Status
 	PutChan               chan PutRequest
 	CanPublishChan        chan Request
 	PublishedChan         chan Request
 	PublishNextChan    		chan Next
+	stopChannel 					chan string
+	mutex 								*sync.RWMutex
+	stopped               bool
 }
 
 // New - Getting new instance of queue, to be invoked during setting up application
-func NewPublishQueue() *PublishQueue {
+func NewReplayQueue() *ReplayQueue {
 
-	return &PublishQueue{
+	return &ReplayQueue{
 		Orders:                make(map[string]*Status),
 		PutChan:               make(chan PutRequest, 128),
 		CanPublishChan:        make(chan Request, 128),
 		PublishedChan:         make(chan Request, 128),
 		PublishNextChan:     	 make(chan Next, 1),
+		stopChannel:           make(chan string, 1),
+		mutex:                 &sync.RWMutex{},
 	}
 
 }
 
 // Put - Client is supposed to be invoking this method
 // when it's interested in putting new order to processing queue
-func (q *PublishQueue) Put(order Order) bool {
+func (q *ReplayQueue) Put(order Order) bool {
 
 	resp := make(chan bool)
 	req := PutRequest{
@@ -75,12 +81,7 @@ func (q *PublishQueue) Put(order Order) bool {
 
 }
 
-// CanPublish - Before any client attempts to publish any order
-// on Pub/Sub topic, they're supposed to be invoking this method
-// to check whether they're eligible of publishing or not
-//
-// NOTE: if any other client has already published it, we'll avoid redoing it
-func (q *PublishQueue) CanPublish(order string) bool {
+func (q *ReplayQueue) CanPublish(order string) bool {
 
 	resp := make(chan bool)
 	req := Request{
@@ -98,7 +99,7 @@ func (q *PublishQueue) CanPublish(order string) bool {
 //
 // Future order processing attempts (if any), are supposed to be
 // avoiding doing this, if already done successfully
-func (q *PublishQueue) Published(order string) bool {
+func (q *ReplayQueue) Published(order string) bool {
 
 	resp := make(chan bool)
 	req := Request{
@@ -112,30 +113,52 @@ func (q *PublishQueue) Published(order string) bool {
 }
 
 // PublishNext - Next order that can be published
-func (q *PublishQueue) PublishNext() (string, bool) {
+func (q *ReplayQueue) PublishNext() (string, int64, bool) {
 
 	resp := make(chan struct {
 		Status bool
 		Order  string
+		Time   int64
 	})
 	req := Next{ResponseChan: resp}
 
 	q.PublishNextChan <- req
 
 	v := <-resp
-	return v.Order, v.Status
+	return v.Order, v.Time, v.Status
+
+}
+
+// Stop - You're supposed to be stopping this method as an
+// independent go routine
+func (q *ReplayQueue) Stop() {
+	q.mutex.RLock()
+	defer q.mutex.RUnlock()
+
+	if q.stopped {
+		return
+	}
+
+	q.stopped = true
+
+	q.stopChannel <- "Stop"
+	<-q.stopChannel
 
 }
 
 // Start - You're supposed to be starting this method as an
 // independent go routine, with will listen on multiple channels
 // & respond back over provided channel ( by client )
-func (q *PublishQueue) Start(ctx context.Context) {
+func (q *ReplayQueue) Start() {
 
 	for {
 		select {
 
-		case <-ctx.Done():
+		case <-q.stopChannel:
+
+			log.Println("Stopping replay queue")
+
+			q.stopChannel <- "Stop"
 			return
 
 		case req := <-q.PutChan:
@@ -176,33 +199,29 @@ func (q *PublishQueue) Start(ctx context.Context) {
 			order.Published = true
 			req.ResponseChan <- true
 
-		case req := <-q.CanPublishChan:
-
-			order, ok := q.Orders[req.Order]
-			if !ok {
-				req.ResponseChan <- false
-				break
-			}
-
-			order.CanPublish = true
-			req.ResponseChan <- true
-
 		case nxt := <-q.PublishNextChan:
 
 			var selected string
 			var found bool
 
+			var min int64
+			// TODO: use min heap for this
 			for k := range q.Orders {
 
-				if q.Orders[k].Published || !q.Orders[k].CanPublish {
+				if q.Orders[k].Published {
 					continue
 				}
 
-				if q.Orders[k].Order.ExecuteTime > time.Now().Unix() {
-					selected = k
-					found = true
+				if min == 0 {
+					min = q.Orders[k].Order.ExecuteTime
+				}
 
-					break
+				if q.Orders[k].Order.ExecuteTime > time.Now().UnixMilli() {
+					if min > q.Orders[k].Order.ExecuteTime || (min == q.Orders[k].Order.ExecuteTime && k < selected) {
+						selected = k
+						min = q.Orders[k].Order.ExecuteTime
+						found = true
+					}
 				}
 
 			}
@@ -210,8 +229,9 @@ func (q *PublishQueue) Start(ctx context.Context) {
 			if !found {
 
 				nxt.ResponseChan <- struct {
-					Status bool
-					Order string
+					Status 	bool
+					Order 	string
+					Time  	int64
 				}{
 					Status: false,
 				}
@@ -220,11 +240,13 @@ func (q *PublishQueue) Start(ctx context.Context) {
 			}
 
 			nxt.ResponseChan <- struct {
-				Status bool
-				Order string
-				}{
+				Status 	bool
+				Order 	string
+				Time   	int64
+			}{
 				Status: true,
 				Order: selected,
+				Time: min,
 			}
 
 		case <-time.After(time.Duration(100) * time.Millisecond):
