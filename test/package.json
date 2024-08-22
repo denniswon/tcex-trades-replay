@@ -1,14 +1,22 @@
 {
-  "name": "tcex-test",
-  "version": "1.0.0",
-  "description": "replay web server tests",
-  "main": "replay.js",
+  "name": "websocket",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "tsx replay.ts"
   },
-  "author": "Jong Hyuck Won <jhwon0820@gmail.com>",
-  "license": "ISC",
   "dependencies": {
-    "websocket": "^1.0.33"
+    "isomorphic-ws": "^5.0.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@tsconfig/recommended": "^1.0.7",
+    "@types/node": "^20",
+    "@types/ws": "^8.5.12",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.3",
+    "tsx": "^4.17.0",
+    "typescript": "^5"
   }
 }
