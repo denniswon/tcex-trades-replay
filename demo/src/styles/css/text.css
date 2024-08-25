@@ -1,0 +1,46 @@
+/* src/ui-text.scss */
+.ui_text_alignLeft {
+  text-align: left;
+}
+.ui_text_alignRight {
+  text-align: right;
+}
+.ui_text_alignCenter {
+  text-align: center;
+}
+.ui_text_wrap {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.ui_text_italic {
+  font-style: italic;
+}
+.ui_text_bold {
+  font-weight: bold;
+}
+.ui_text_slim {
+  font-weight: 100;
+}
+.ui_text_link > a {
+  cursor: pointer;
+  outline: none;
+  text-decoration: none;
+}
+.ui_text_fullWidth {
+  width: 100%;
+}
+.ui_text_buttonLink {
+  font-weight: bold;
+  border-style: solid;
+  border-radius: 10px;
+}
+.ui_text_buttonLink a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  column-gap: 10px;
+  cursor: pointer;
+  outline: none;
+  text-decoration: none;
+}

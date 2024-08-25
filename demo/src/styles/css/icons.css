@@ -1,0 +1,6 @@
+/* src/ui-icon.scss */
+.ui_icon_icon {
+  vertical-align: sub;
+  display: inline-block;
+  justify-content: center;
+}

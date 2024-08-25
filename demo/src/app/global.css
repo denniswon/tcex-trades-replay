@@ -1,0 +1,15 @@
+/**
+*
+* Import all @UiReact dependency styles
+*
+*/
+
+/* @UiReact DEPENDENCIES */
+@import url(../styles/css/button.css);
+@import url(../styles/css/card.css);
+@import url(../styles/css/dialog.css);
+@import url(../styles/css/flex.css);
+@import url(../styles/css/foundation.css);
+@import url(../styles/css/icons.css);
+@import url(../styles/css/text.css);
+@import url(../styles/css/view.css);

@@ -216,7 +216,7 @@ func (q *ReplayQueue) Start() {
 					min = q.Orders[k].Order.ExecuteTime
 				}
 
-				if q.Orders[k].Order.ExecuteTime > time.Now().UnixMilli() {
+				if q.Orders[k].Order.ExecuteTime <= time.Now().UnixMicro() {
 					if min > q.Orders[k].Order.ExecuteTime || (min == q.Orders[k].Order.ExecuteTime && k < selected) {
 						selected = k
 						min = q.Orders[k].Order.ExecuteTime

@@ -173,7 +173,7 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 	scanner := bufio.NewScanner(fref.File)
 
 	var orderNumber uint64 = 0
-	var currTime int64 = time.Now().UnixMilli()
+	var currTime int64 = time.Now().UnixMicro()
 	var indexTime int64 = 0
 	var pairs []interface{}
 	orders := []Order{}
@@ -195,14 +195,13 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 		pairs = append(pairs, order.ToJSON())
 
 		if indexTime == 0 {
-			indexTime = order.Timestamp
+			indexTime = order.Timestamp * 1000	// convert to microseconds
 		}
 
-		log.Printf("!!!!!!! %f %d\n", float32(order.Timestamp - indexTime) / request.ReplayRate, int64(float32(order.Timestamp - indexTime) / request.ReplayRate))
 		orders = append(orders, Order {
 			RequestId: request.ID,
 			OrderNumber: orderNumber,
-			ExecuteTime: currTime + int64(float32(order.Timestamp - indexTime) / request.ReplayRate),
+			ExecuteTime: currTime + int64(float32(order.Timestamp * 1000 - indexTime) / request.ReplayRate),
 		})
 
 		orderNumber++

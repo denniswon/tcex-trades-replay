@@ -1,0 +1,127 @@
+/* src/ui-dialog.scss */
+.ui_dialog_wrapper {
+  width: 100%;
+  height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 150;
+}
+.ui_dialog_background {
+  width: 100%;
+  height: 100%;
+  position: fixed;
+  top: 0;
+  left: 0;
+  background: black;
+  opacity: 0.5;
+  z-index: 50;
+}
+.ui_dialog_contentWrapper {
+  background-color: var(--primary-token_100);
+  color: var(--fonts-token_100);
+  z-index: 100;
+  min-width: 200px;
+}
+.ui_dialog_content {
+  background-color: var(--primary-token_100);
+  color: var(--fonts-token_100);
+  padding: 5px;
+  height: 100%;
+  min-height: 100px;
+}
+.ui_dialog_centered {
+  box-shadow: rgb(38, 57, 77) 0px 20px 30px -10px;
+  top: 50%;
+  left: 50%;
+  transform: translateY(-50%) translateX(-50%);
+  border-radius: 5px;
+  position: absolute;
+}
+.ui_dialog_left {
+  box-shadow: rgb(38, 57, 77) 0px 20px 30px -10px;
+  top: 0%;
+  left: 0%;
+  position: fixed;
+  height: 100%;
+  min-width: 20%;
+}
+.ui_dialog_right {
+  box-shadow: rgb(38, 57, 77) 0px 20px 30px -10px;
+  top: 0%;
+  right: 0%;
+  position: fixed;
+  height: 100%;
+  min-width: 20%;
+}
+.ui_dialog_bottom {
+  box-shadow: rgba(0, 0, 0, 0.16) 0px 10px 36px 0px, rgba(0, 0, 0, 0.06) 0px 0px 0px 1px;
+  bottom: 0%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 5px 5px 0 0;
+  position: fixed;
+  min-width: 579px;
+  min-height: 100px;
+}
+@media screen and (max-width: 579px) {
+  .ui_dialog_bottom {
+    width: 100%;
+    min-width: 100%;
+  }
+}
+.ui_dialog_fullScreen {
+  top: 0%;
+  right: 0%;
+  position: fixed;
+  height: 100%;
+  width: 100%;
+}
+.ui_dialog_border {
+  height: 100%;
+  background:
+    linear-gradient(
+      -45deg,
+      var(--primary-token_100),
+      var(--secondary-token_100),
+      var(--tertiary-token_100),
+      var(--primary-token_10),
+      var(--secondary-token_10),
+      var(--tertiary-token_10),
+      var(--primary-token_200),
+      var(--secondary-token_200),
+      var(--tertiary-token_200));
+  animation: ui_dialog_animateGradientBg 15s ease infinite;
+  background-size: 400% 400%;
+}
+@keyframes ui_dialog_animateGradientBg {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+.ui_dialog_centeredRadius {
+  border-radius: 5px;
+}
+.ui_dialog_bottomRadius {
+  border-radius: 5px 5px 0 0;
+}
+.ui_dialog_bordered {
+  padding: 2px;
+}
+.ui_dialog_borderedBottom {
+  padding: 2px 2px 0 2px;
+}
+.ui_dialog_toobar {
+  display: flex;
+  gap: 10px;
+  border-color: var(--primary-token_100);
+  border-style: solid;
+  border-width: 0 0 2px 0;
+  padding-bottom: 5px;
+}

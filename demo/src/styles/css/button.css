@@ -1,0 +1,38 @@
+/* src/ui-button.scss */
+.ui_button_button {
+  font-weight: bold;
+  border-style: solid;
+  padding-left: 10px;
+  padding-right: 10px;
+  border-width: 1px;
+  cursor: pointer;
+}
+.ui_button_button:disabled {
+  cursor: not-allowed;
+}
+.ui_button_buttonFullWidth {
+  width: 100%;
+}
+.ui_button_buttonFullHeight {
+  height: 100%;
+}
+.ui_button_buttonClear {
+  border-width: 0;
+  background: transparent;
+}
+.ui_button_buttonOutlined {
+  padding: 5px 10px 5px 10px;
+  background-color: transparent;
+  border-width: 2px;
+}
+.ui_button_buttonIcon {
+  background-color: transparent;
+  color: var(--fonts-token_100);
+  padding: 10px;
+  border-radius: 50%;
+  display: inline-flex;
+  border-width: 0px;
+}
+.ui_button_buttonRadius {
+  border-radius: 3px;
+}

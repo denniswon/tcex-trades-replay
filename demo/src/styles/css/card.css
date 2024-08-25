@@ -1,0 +1,13 @@
+/* src/ui-card.scss */
+.ui_card_cardLink {
+  text-decoration: none;
+}
+.ui_card_card {
+  border-radius: 10px;
+  transition: background 0.2s, border-color 0.2s;
+  box-sizing: border-box;
+}
+.ui_card_cardOutlined {
+  border-width: 3px;
+  border-style: solid;
+}

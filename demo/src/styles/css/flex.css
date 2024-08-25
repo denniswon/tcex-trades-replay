@@ -1,0 +1,108 @@
+/* src/ui-flex-grid.scss */
+.ui_flex_grid_flexGrid {
+  display: flex;
+}
+.ui_flex_grid_inlineFlex {
+  display: inline-flex;
+}
+.ui_flex_grid_align-end {
+  align-items: flex-end;
+}
+.ui_flex_grid_align-start {
+  align-items: flex-start;
+}
+.ui_flex_grid_align-stretch {
+  align-items: stretch;
+}
+.ui_flex_grid_align-center {
+  align-items: center;
+}
+.ui_flex_grid_row {
+  flex-direction: row;
+}
+.ui_flex_grid_column {
+  flex-direction: column;
+}
+.ui_flex_grid_row-reverse {
+  flex-direction: row-reverse;
+}
+.ui_flex_grid_column-reverse {
+  flex-direction: column-reverse;
+}
+.ui_flex_grid_columnGapone {
+  column-gap: var(--spacing-one);
+}
+.ui_flex_grid_rowGapone {
+  row-gap: var(--spacing-one);
+}
+.ui_flex_grid_columnGaptwo {
+  column-gap: var(--spacing-two);
+}
+.ui_flex_grid_rowGaptwo {
+  row-gap: var(--spacing-two);
+}
+.ui_flex_grid_columnGapthree {
+  column-gap: var(--spacing-three);
+}
+.ui_flex_grid_rowGapthree {
+  row-gap: var(--spacing-three);
+}
+.ui_flex_grid_columnGapfour {
+  column-gap: var(--spacing-four);
+}
+.ui_flex_grid_rowGapfour {
+  row-gap: var(--spacing-four);
+}
+.ui_flex_grid_columnGapfive {
+  column-gap: var(--spacing-five);
+}
+.ui_flex_grid_rowGapfive {
+  row-gap: var(--spacing-five);
+}
+.ui_flex_grid_columnGapsix {
+  column-gap: var(--spacing-six);
+}
+.ui_flex_grid_rowGapsix {
+  row-gap: var(--spacing-six);
+}
+.ui_flex_grid_columnGapseven {
+  column-gap: var(--spacing-seven);
+}
+.ui_flex_grid_rowGapseven {
+  row-gap: var(--spacing-seven);
+}
+.ui_flex_grid_wrap {
+  flex-wrap: wrap;
+}
+.ui_flex_grid_nowrap {
+  flex-wrap: nowrap;
+}
+.ui_flex_grid_wrap-reverse {
+  flex-wrap: wrap-reverse;
+}
+.ui_flex_grid_justify-flex-start {
+  justify-content: flex-start;
+}
+.ui_flex_grid_justify-flex-end {
+  justify-content: flex-end;
+}
+.ui_flex_grid_justify-center {
+  justify-content: center;
+}
+.ui_flex_grid_justify-space-between {
+  justify-content: space-between;
+}
+
+/* src/ui-flex-grid-item.scss */
+.ui_flex_grid_item_align-center {
+  align-self: center;
+}
+.ui_flex_grid_item_align-start {
+  align-self: flex-start;
+}
+.ui_flex_grid_item_align-end {
+  align-self: flex-end;
+}
+.ui_flex_grid_item_align-auto {
+  align-self: auto;
+}

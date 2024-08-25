@@ -3,6 +3,7 @@ package rest
 import (
 	"fmt"
 	"log"
+	"net/http"
 	"sync"
 
 	"github.com/gin-contrib/cors"
@@ -29,6 +30,9 @@ func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client) {
 		upgrader := websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
+			// TODO: You should never blindly trust any Origin by return true.
+			// Have the function range over a list of accepted origins.
+			CheckOrigin:     func(r *http.Request) bool { return true },
 		}
 
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
