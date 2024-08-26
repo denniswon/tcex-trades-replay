@@ -1,3 +1,4 @@
+import { EOF } from "@/data/eof";
 import { Order } from "@/data/order";
 
 export const tryParse = <T>(
@@ -13,9 +14,12 @@ export const tryParse = <T>(
   return null;
 };
 
-// Validate this value with a custom type guard (extend to your needs)
 export const isOrder = (o: any): o is Order => {
   return (
     "price" in o && "quantity" in o && "aggressor" in o && "timestamp" in o
   );
+};
+
+export const isEOF = (o: any): o is EOF => {
+  return "request_id" in o;
 };

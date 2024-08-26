@@ -58,29 +58,43 @@ func ProcessOrderReplays(ctx context.Context, requestQueue *q.RequestQueue, repl
 					replayQueue.Put(order)
 
 				default:
-					if order, extime, ok := replayQueue.PublishNext(); ok {
-						// retrieve the cached order data
-						encoded, err := redis.Get(context.Background(), order).Result()
-						if err != nil {
-							log.Fatalf("Failed to retrieve cached order %s : %s\n", order, err.Error())
-							continue
-						}
+					if order, extime, eof, ok := replayQueue.PublishNext(); ok {
 
-						_order := d.Order{}
-						err = json.Unmarshal([]byte(encoded), &_order)
-						if err != nil {
-							log.Fatalf("Failed to unmarshal cached order %s : %s\n", order, err.Error())
-							continue
-						}
+						if eof {
 
-						log.Printf(
-							"Publishing order %s at time %d (order timestamp : %d)\n",
-							order, extime, _order.Timestamp,
-						)
+							log.Println("Publishing EOF for replay")
 
-						if ok := PublishReplayOrder(order, &_order, replayQueue, redis); !ok {
-							log.Fatalf("Failed to publish replay order %s : %s\n", order, err.Error())
-							continue
+							if ok := PublishReplayEOF(order, replayQueue, redis); !ok {
+								log.Fatalf("Failed to publish replay eof %s\n", order)
+								continue
+							}
+
+						} else {
+
+							// retrieve the cached order data
+							encoded, err := redis.Get(context.Background(), order).Result()
+							if err != nil {
+								log.Fatalf("Failed to retrieve cached order %s : %s\n", order, err.Error())
+								continue
+							}
+
+							_order := d.Order{}
+							err = json.Unmarshal([]byte(encoded), &_order)
+							if err != nil {
+								log.Fatalf("Failed to unmarshal cached order %s : %s\n", order, err.Error())
+								continue
+							}
+
+							log.Printf(
+								"Publishing order %s at time %d (order timestamp : %d)\n",
+								order, extime, _order.Timestamp,
+							)
+
+							if ok := PublishReplayOrder(order, &_order, replayQueue, redis); !ok {
+								log.Fatalf("Failed to publish replay order %s\n", order)
+								continue
+							}
+
 						}
 
 						res, err := redis.Del(context.Background(), order).Result()

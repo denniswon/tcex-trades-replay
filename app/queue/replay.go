@@ -35,6 +35,7 @@ type Next struct {
 		Status bool
 		Order  string
 		Time   int64
+		EOF    bool
 	}
 }
 
@@ -45,6 +46,7 @@ type ReplayQueue struct {
 	CanPublishChan        chan Request
 	PublishedChan         chan Request
 	PublishNextChan    		chan Next
+	CleanUpChan           chan bool
 	stopChannel 					chan string
 	mutex 								*sync.RWMutex
 	stopped               bool
@@ -113,20 +115,25 @@ func (q *ReplayQueue) Published(order string) bool {
 }
 
 // PublishNext - Next order that can be published
-func (q *ReplayQueue) PublishNext() (string, int64, bool) {
+func (q *ReplayQueue) PublishNext() (string, int64, bool, bool) {
 
 	resp := make(chan struct {
 		Status bool
 		Order  string
 		Time   int64
+		EOF    bool
 	})
 	req := Next{ResponseChan: resp}
 
 	q.PublishNextChan <- req
 
 	v := <-resp
-	return v.Order, v.Time, v.Status
+	return v.Order, v.Time, v.EOF, v.Status
 
+}
+
+func (q *ReplayQueue) CleanUp() {
+	q.CleanUpChan <- true
 }
 
 // Stop - You're supposed to be stopping this method as an
@@ -209,6 +216,7 @@ func (q *ReplayQueue) Start() {
 			for k := range q.Orders {
 
 				if q.Orders[k].Published {
+					delete(q.Orders, k)
 					continue
 				}
 
@@ -217,7 +225,7 @@ func (q *ReplayQueue) Start() {
 				}
 
 				if q.Orders[k].Order.ExecuteTime <= time.Now().UnixMicro() {
-					if min > q.Orders[k].Order.ExecuteTime || (min == q.Orders[k].Order.ExecuteTime && k < selected) {
+					if min >= q.Orders[k].Order.ExecuteTime || (min == q.Orders[k].Order.ExecuteTime && k < selected) {
 						selected = k
 						min = q.Orders[k].Order.ExecuteTime
 						found = true
@@ -232,6 +240,7 @@ func (q *ReplayQueue) Start() {
 					Status 	bool
 					Order 	string
 					Time  	int64
+					EOF   	bool
 				}{
 					Status: false,
 				}
@@ -243,21 +252,12 @@ func (q *ReplayQueue) Start() {
 				Status 	bool
 				Order 	string
 				Time   	int64
+				EOF   	bool
 			}{
 				Status: true,
 				Order: selected,
 				Time: min,
-			}
-
-		case <-time.After(time.Duration(100) * time.Millisecond):
-
-			// Finding out which orders are confirmed & we're good to clean those up
-			for k := range q.Orders {
-
-				if q.Orders[k].Published {
-					delete(q.Orders, k)
-				}
-
+				EOF: q.Orders[selected].Order.EOF,
 			}
 
 		}

@@ -22,7 +22,7 @@ type Consumer interface {
 func NewOrderConsumer(client *redis.Client, request *SubscriptionRequest, conn *websocket.Conn, connLock *sync.Mutex, topicLock *sync.RWMutex) *OrderConsumer {
 	consumer := OrderConsumer{
 		Client:     client,
-		Request:   request,
+		Request:   	request,
 		Connection: conn,
 		ConnLock:   connLock,
 		TopicLock:  topicLock,

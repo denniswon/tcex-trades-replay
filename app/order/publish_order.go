@@ -34,3 +34,28 @@ func PublishOrder(orderId string, order *d.Order, redis *redis.Client) bool {
 	return true
 
 }
+
+// PublishEOF - Attempts to publish replay eof to Redis pubsub channel
+func PublishEOF(orderId string, redis *redis.Client) bool {
+
+	tokens := strings.Split(orderId, ":")
+	if len(tokens) != 2 {
+		log.Printf("Unexpected order id %s\n", orderId)
+		return false
+	}
+
+	requestId := tokens[0]
+	eof := d.EOF{
+		RequestID: requestId,
+	}
+	if err := redis.Publish(context.Background(), requestId, &eof).Err(); err != nil {
+
+		log.Printf("Failed to publish eof %s : %s\n", requestId, err.Error())
+		return false
+
+	}
+
+	log.Printf("📎 Published eof for request %s\n", requestId)
+	return true
+
+}

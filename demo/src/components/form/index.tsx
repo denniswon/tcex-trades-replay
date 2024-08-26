@@ -4,11 +4,12 @@ import styled from "styled-components";
 import { useFormValidate } from "@/hooks/useFormValidate";
 import { normalize, transitions } from "polished";
 import { useMemo, useState } from "react";
+import { InferType } from "yup";
 import { Button } from "..";
 import { ErrorTextbox } from "../error";
 import schema from "./schema";
 
-export type FormInputSchema = typeof schema.shape;
+export type FormInputSchema = InferType<typeof schema>;
 
 const FormInput = styled.input`
   height: ${(props: any) => (props.size === "large" ? "36px" : "24px")};
@@ -71,7 +72,7 @@ const Form = ({
     setReplayRateError(undefined);
   };
 
-  const _onSubmit = async (data) => {
+  const _onSubmit = async (data: FormInputSchema) => {
     try {
       clearError();
       onSubmit(data);

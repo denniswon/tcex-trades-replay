@@ -1,7 +1,7 @@
 "use client";
 
 import { Box, Container, Main } from "@/components";
-import { Form } from "@/components/form";
+import { Form, FormInputSchema } from "@/components/form";
 import Orders from "@/components/orders";
 import { Order } from "@/data/order";
 import { useWs } from "@/hooks/useWs";
@@ -18,9 +18,12 @@ export default function Home() {
     onError: (error) => {
       setWsError(error);
     },
+    onEOF: (eof) => {
+      unsubscribe(eof.request_id);
+    },
   });
 
-  const replayRequestHandler = async (data) => {
+  const replayRequestHandler = async (data: FormInputSchema) => {
     if (!ws || !open) {
       return;
     }
@@ -33,6 +36,27 @@ export default function Home() {
         type: "subscribe",
         filename: data.filename,
         replay_rate: Number(data.replay_rate),
+      };
+      ws.send(JSON.stringify(body));
+    } catch (error) {
+      console.error(error);
+      setWsError(error);
+    }
+  };
+
+  const unsubscribe = async (request_id: string) => {
+    console.log(`Unsubscribing from ${request_id}`, !ws, open);
+    if (!ws) {
+      return;
+    }
+
+    setWsError(undefined);
+
+    console.log(`Unsubscribing from ${request_id}`);
+    try {
+      const body = {
+        type: "unsubscribe",
+        id: request_id,
       };
       ws.send(JSON.stringify(body));
     } catch (error) {

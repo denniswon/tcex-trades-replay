@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -66,6 +67,12 @@ func (b *OrderConsumer) Listen() {
 // connected over websocket
 func (b *OrderConsumer) Send(msg string) {
 
+	if strings.Contains(msg, "request_id") {
+		b.SendEOF(msg)
+		return
+
+	}
+
 	var order struct {
 		Price               string `json:"price"`
 		Quantity            uint64 `json:"quantity"`
@@ -77,11 +84,36 @@ func (b *OrderConsumer) Send(msg string) {
 
 	err := json.Unmarshal(_msg, &order)
 	if err != nil {
+
 		log.Printf("[!] Failed to decode published order data to JSON : %s\n", err.Error())
+
 		return
 	}
 
 	b.SendData(&order)
+}
+
+// SendEOF - Tries to deliver eof data to client application
+// connected over websocket
+func (b *OrderConsumer) SendEOF(msg string) {
+
+	var eof struct{
+		RequestID	string `json:"request_id"`
+	}
+
+	_msg := []byte(msg)
+
+	err := json.Unmarshal(_msg, &eof)
+
+	if err != nil {
+
+		log.Printf("[!] Failed to decode published eof data to JSON : %s\n", err.Error())
+
+		return
+	}
+
+	b.SendData(&eof)
+	log.Printf("Published EOF for request %s\n", eof.RequestID)
 }
 
 // SendData - Sending message to client application, connected over websocket

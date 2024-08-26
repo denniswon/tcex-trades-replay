@@ -19,13 +19,15 @@ type Order struct {
 	RequestId 		string
 	OrderNumber 	uint64
 	ExecuteTime 	int64
+	EOF 					bool
 }
 
 func (o *Order) String() string {
-	return fmt.Sprintf(`{"request_id":%s,"order_number":%d,"execute_time":%d}`,
+	return fmt.Sprintf(`{"request_id":%s,"order_number":%d,"execute_time":%d, "eof":%t}`,
 		o.RequestId,
 		o.OrderNumber,
 		o.ExecuteTime,
+		o.EOF,
 	)
 }
 
@@ -175,6 +177,7 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 	var orderNumber uint64 = 0
 	var currTime int64 = time.Now().UnixMicro()
 	var indexTime int64 = 0
+	var lastOrderExecuteTime int64 = 0
 	var pairs []interface{}
 	orders := []Order{}
 
@@ -198,15 +201,26 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 			indexTime = order.Timestamp * 1000	// convert to microseconds
 		}
 
+		lastOrderExecuteTime = currTime + int64(float32(order.Timestamp * 1000 - indexTime) / request.ReplayRate)
+
 		orders = append(orders, Order {
 			RequestId: request.ID,
 			OrderNumber: orderNumber,
-			ExecuteTime: currTime + int64(float32(order.Timestamp * 1000 - indexTime) / request.ReplayRate),
+			ExecuteTime: lastOrderExecuteTime,
+			EOF: false,
 		})
 
 		orderNumber++
 
 	}
+
+	// dummy last order to signal replay finished
+	orders = append(orders, Order {
+		RequestId: request.ID,
+		OrderNumber: orderNumber,
+		ExecuteTime: lastOrderExecuteTime + 1000,	// 1 millisecond buffer for replay finished message
+		EOF: true,
+	})
 
 	if len(pairs) > 0 {
 		_, err := q.redis.MSet(context.Background(), pairs...).Result()

@@ -28,3 +28,26 @@ func PublishReplayOrder(orderId string, order *d.Order, queue *q.ReplayQueue, re
 
 	return true
 }
+
+// PublishReplayEOF - Attempts to notify the client of the EOF for replay
+func PublishReplayEOF(orderId string, queue *q.ReplayQueue, redis *redis.Client) bool {
+
+	// -- 3 step pub/sub attempt
+
+	// 1. Asking queue whether we need to publish order or not
+	if !queue.CanPublish(orderId) {
+		return false
+	}
+
+	// 2. Attempting to publish replay EOF on Pub/Sub topic
+	if !PublishEOF(orderId, redis) {
+		return false
+	}
+
+	// 3. Marking this order as published
+	if !queue.Published(orderId) {
+		return false
+	}
+
+	return true
+}
