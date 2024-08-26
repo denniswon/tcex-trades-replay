@@ -39,11 +39,11 @@ export const CustomTheme: Theme = {
       token_200: "#adadad",
     },
     primary: {
-      token_10: "#dbe3f9",
-      token_50: "#8ca4ea",
-      token_100: "#577ae1",
-      token_150: "#2044b0",
-      token_200: "#1a3993",
+      token_10: "#302b2b",
+      token_50: "#282424",
+      token_100: "#1b1818",
+      token_150: "#131111",
+      token_200: "#0f0d0d",
     },
     secondary: {
       token_10: "#ffffff",
@@ -98,10 +98,10 @@ export const CustomTheme: Theme = {
     },
     primary: {
       token_10: "#ffffff",
-      token_50: "#cad7fd",
-      token_100: "#81a0fa",
-      token_150: "#0944f4",
-      token_200: "#0739cc",
+      token_50: "#f9f9f9",
+      token_100: "#f2f2f2",
+      token_150: "#bababa",
+      token_200: "#adadad",
     },
     secondary: {
       token_10: "#f0f064",

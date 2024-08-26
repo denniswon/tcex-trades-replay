@@ -33,3 +33,21 @@ func NewOrderConsumer(client *redis.Client, request *SubscriptionRequest, conn *
 
 	return &consumer
 }
+
+// NewKlineConsumer - Creating one new kline data consumer, which will subscribe to order
+// topic & listen for data being published on this channel, which will eventually be
+// delivered to client application over websocket connection
+func NewKlineConsumer(client *redis.Client, request *SubscriptionRequest, conn *websocket.Conn, connLock *sync.Mutex, topicLock *sync.RWMutex) *KlineConsumer {
+	consumer := KlineConsumer{
+		Client:     client,
+		Request:   	request,
+		Connection: conn,
+		ConnLock:   connLock,
+		TopicLock:  topicLock,
+	}
+
+	consumer.Subscribe()
+	go consumer.Listen()
+
+	return &consumer
+}

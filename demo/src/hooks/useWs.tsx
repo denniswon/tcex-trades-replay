@@ -1,20 +1,14 @@
-import { EOF } from "@/data/eof";
-import { isEOF, tryParse } from "@/utils/data";
 import { useCallback, useEffect, useState } from "react";
 
-export const useWs = <T,>({
+export function useWs<T>({
   url,
-  guard,
   onError,
-  onEOF,
 }: {
   url: string;
-  guard: (o: any) => o is T;
   onError?: (error: any) => void;
-  onEOF?: (eof: EOF) => void;
-}) => {
+}) {
   const [ws, setWs] = useState<WebSocket | undefined>(undefined);
-  const [messages, setMessages] = useState<T[]>([]);
+  const [messages, setMessages] = useState<MessageEvent[]>([]);
   const [open, setOpen] = useState(false);
   const [firstConnect, setFirstConnect] = useState(true);
 
@@ -75,19 +69,7 @@ export const useWs = <T,>({
     };
 
     ws.onmessage = (event: MessageEvent) => {
-      const msg = tryParse<T>(guard, event.data);
-      if (msg) {
-        setMessages((messages) => [...messages, msg]);
-      } else {
-        const eof = tryParse<EOF>(isEOF, event.data);
-        if (eof) {
-          console.log("EOF", eof);
-          onEOF?.(eof);
-          return;
-        }
-
-        console.error("Failed to parse message", event.data);
-      }
+      setMessages((messages) => [...messages, event]);
     };
   }, [ws, open, onError]);
 
@@ -101,4 +83,4 @@ export const useWs = <T,>({
     messages,
     clearMessages,
   };
-};
+}

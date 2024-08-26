@@ -38,6 +38,7 @@ const Col = styled.div`
 
 const Main = styled.div`
   padding: 2vh;
+  /* background-color: black; */
 `;
 
 const Container = styled.div`

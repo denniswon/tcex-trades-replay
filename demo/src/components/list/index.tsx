@@ -21,7 +21,7 @@ const TitleRow = styled(Row)`
 function GridList<T>({ items, cols, itemRender }: GridListProps<T>) {
   return (
     <StyledContainer>
-      <UiGrid cols={cols.length} rows={items.length} justifyItems="center">
+      <StyledGrid cols={cols.length} rows={items.length} justifyItems="center">
         <UiGridItem cols={4}>
           <TitleRow>
             {...cols.map((col) => (
@@ -36,7 +36,7 @@ function GridList<T>({ items, cols, itemRender }: GridListProps<T>) {
         {...items.map((item) => (
           <StyledRow cols={cols.length}>{itemRender(item)}</StyledRow>
         ))}
-      </UiGrid>
+      </StyledGrid>
     </StyledContainer>
   );
 }
@@ -47,6 +47,11 @@ const StyledContainer = styled(Box)`
   max-height: 65vh;
   overflow-y: scroll;
   justify-content: center;
+  overflow-x: scroll;
+`;
+
+const StyledGrid = styled(UiGrid)`
+  overflow-x: scroll;
 `;
 
 const StyledRow = ({

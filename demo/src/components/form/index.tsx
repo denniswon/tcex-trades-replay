@@ -1,7 +1,9 @@
 import { useForm } from "react-hook-form";
 import styled from "styled-components";
 
+import { useTheme } from "@/contexts/theme";
 import { useFormValidate } from "@/hooks/useFormValidate";
+import { Theme } from "@uireact/foundation";
 import { normalize, transitions } from "polished";
 import { useMemo, useState } from "react";
 import { InferType } from "yup";
@@ -11,11 +13,15 @@ import schema from "./schema";
 
 export type FormInputSchema = InferType<typeof schema>;
 
-const FormInput = styled.input`
+const FormInput = styled.input<{ theme: Theme; disabled: boolean }>`
   height: ${(props: any) => (props.size === "large" ? "36px" : "24px")};
   margin: 8px;
   padding: 2px;
   width: 30%;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background-color: ${(props) =>
+    props.disabled ? "#ccc" : props.theme.colors.primary.token_100};
 `;
 
 const FormButton = styled(Button)`
@@ -24,7 +30,6 @@ const FormButton = styled(Button)`
 `;
 
 const StyledForm = styled.form`
-  background: white;
   padding: 12px;
   border-radius: 10px;
 `;
@@ -32,7 +37,7 @@ const StyledForm = styled.form`
 const Container = styled.div`
   gap: 2rem;
   padding: 0.5rem;
-  background: #f0f0f0;
+  border: 1px solid #ccc;
   border-radius: 10px;
   flex: 1;
 `;
@@ -46,6 +51,7 @@ const Form = ({
   onError?: (error: any) => void;
   disabled?: boolean;
 }) => {
+  const { theme } = useTheme();
   const resolver = useFormValidate(schema);
   const {
     register,
@@ -86,21 +92,23 @@ const Form = ({
     <Container>
       <StyledForm onSubmit={handleSubmit(_onSubmit)}>
         <FormInput
+          theme={theme}
           disabled={_disabled}
           style={{
             border: !_disabled && filenameError ? "1px solid red" : undefined,
           }}
           type="text"
-          placeholder="Filename"
+          placeholder="Filename (trades.txt)"
           {...register("filename")}
         />
         <FormInput
+          theme={theme}
           disabled={_disabled}
           style={{
             border: !_disabled && replayRateError ? "1px solid red" : undefined,
           }}
           type="text"
-          placeholder="Replay Rate"
+          placeholder="Replay Rate (60)"
           {...register("replay_rate")}
         />
         <FormButton type="submit" disabled={_disabled}>

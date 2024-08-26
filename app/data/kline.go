@@ -8,11 +8,11 @@ import (
 
 // Kline - OHLCV data for the orders for a specific granularity
 type Kline struct {
-	Timestamp						uint64 	`json:"timestamp"` 		// bucket start time in unix timestamp
-	Low 								float32 `json:"low"`  			  // lowest price during the bucket interval
-	High 								float32 `json:"high"`  				// highest price during the bucket interval
-	Open								float32 `json:"open"`  				// opening price (first trade) in the bucket interval
-	Close 							float32 `json:"close"`  			// closing price (last trade) in the bucket interval
+	Timestamp						int64 	`json:"timestamp"` 		// bucket start time in unix timestamp
+	Low 								float64 `json:"low"`  			  // lowest price during the bucket interval
+	High 								float64 `json:"high"`  				// highest price during the bucket interval
+	Open								float64 `json:"open"`  				// opening price (first trade) in the bucket interval
+	Close 							float64 `json:"close"`  			// closing price (last trade) in the bucket interval
 	Volume 							int64 	`json:"volume"`  			// volume of trading activity during the bucket interval
 	Granularity         uint16  `json:"granularity"`	// granularity field is in "seconds"
 }

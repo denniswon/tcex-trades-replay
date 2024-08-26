@@ -2,24 +2,20 @@
 
 import { Box, Container, Main } from "@/components";
 import { Form, FormInputSchema } from "@/components/form";
+import Kline from "@/components/kline";
 import Orders from "@/components/orders";
-import { Order } from "@/data/order";
 import { useWs } from "@/hooks/useWs";
-import { isOrder } from "@/utils/data";
 import { UiHeading, UiText } from "@uireact/text";
 import { useState } from "react";
 
 export default function Home() {
   const [wsError, setWsError] = useState<any>();
+  const [mode, _setMode] = useState<"order" | "kline">("order");
 
-  const { ws, open, messages, clearMessages } = useWs<Order>({
+  const { ws, open, messages, clearMessages } = useWs({
     url: "ws://localhost:8080/v1/ws",
-    guard: isOrder,
     onError: (error) => {
       setWsError(error);
-    },
-    onEOF: (eof) => {
-      unsubscribe(eof.request_id);
     },
   });
 
@@ -34,6 +30,7 @@ export default function Home() {
     try {
       const body = {
         type: "subscribe",
+        name: mode,
         filename: data.filename,
         replay_rate: Number(data.replay_rate),
       };
@@ -49,8 +46,6 @@ export default function Home() {
     if (!ws) {
       return;
     }
-
-    setWsError(undefined);
 
     console.log(`Unsubscribing from ${request_id}`);
     try {
@@ -77,10 +72,20 @@ export default function Home() {
         <UiText fontStyle="bold" margin={{ all: "four" }}>
           Orders
         </UiText>
-        <Orders
-          orders={messages}
-          error={wsError || (open ? undefined : "Server disconnected.")}
-        />
+        {mode === "order" ? (
+          <Orders
+            messages={messages}
+            error={wsError || (open ? undefined : "Server disconnected.")}
+            onEOF={(eof) => {
+              unsubscribe(eof.request_id);
+            }}
+          />
+        ) : (
+          <Kline
+            messages={messages}
+            error={wsError || (open ? undefined : "Server disconnected.")}
+          />
+        )}
       </Container>
     </Main>
   );

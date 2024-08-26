@@ -1,4 +1,5 @@
 import { EOF } from "@/data/eof";
+import { Kline } from "@/data/kline";
 import { Order } from "@/data/order";
 
 export const tryParse = <T>(
@@ -17,6 +18,18 @@ export const tryParse = <T>(
 export const isOrder = (o: any): o is Order => {
   return (
     "price" in o && "quantity" in o && "aggressor" in o && "timestamp" in o
+  );
+};
+
+export const isKline = (k: any): k is Kline => {
+  return (
+    "low" in k &&
+    "high" in k &&
+    "open" in k &&
+    "close" in k &&
+    "volume" in k &&
+    "granularity" in k &&
+    "timestamp" in k
   );
 };
 

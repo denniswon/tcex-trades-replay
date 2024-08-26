@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -181,6 +183,8 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 	var pairs []interface{}
 	orders := []Order{}
 
+	var kline d.Kline = d.Kline{}
+
 	for scanner.Scan() {
 
 		if q.IsStopped() {
@@ -194,11 +198,42 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 			return err
 		}
 
-		pairs = append(pairs, fmt.Sprintf("%s:%d", request.ID, orderNumber))
-		pairs = append(pairs, order.ToJSON())
-
 		if indexTime == 0 {
 			indexTime = order.Timestamp * 1000	// convert to microseconds
+		}
+
+		f, _ := strconv.ParseFloat(order.Price, 32)
+		price := float64(f)
+
+		if kline.Timestamp == 0 || kline.Timestamp + int64(request.Granularity) <= order.Timestamp{
+			kline.Timestamp = order.Timestamp
+			kline.Low = price
+			kline.High = price
+			kline.Open = price
+			kline.Close = price
+			if order.Aggressor == "ask" {
+				kline.Volume = int64(order.Quantity) * -1
+			} else {
+				kline.Volume = int64(order.Quantity)
+			}
+		} else {
+			kline.Low = math.Min(kline.Low, price)
+			kline.High = math.Max(kline.Low, price)
+			kline.Close = price
+			if order.Aggressor == "ask" {
+				kline.Volume -= int64(order.Quantity)
+			} else {
+				kline.Volume += int64(order.Quantity)
+			}
+		}
+
+		pairs = append(pairs, fmt.Sprintf("%s:%d", request.ID, orderNumber))
+
+		switch request.Name {
+		case "kline":
+			pairs = append(pairs, kline.ToJSON())
+		case "order":
+			pairs = append(pairs, order.ToJSON())
 		}
 
 		lastOrderExecuteTime = currTime + int64(float32(order.Timestamp * 1000 - indexTime) / request.ReplayRate)

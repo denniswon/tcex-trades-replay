@@ -16,7 +16,7 @@ const Container = styled.div`
   flex: 1;
 `;
 
-const Orders = ({
+const Kline = ({
   messages,
   error,
   onEOF,
@@ -70,4 +70,4 @@ const Orders = ({
   );
 };
 
-export default Orders;
+export default Kline;

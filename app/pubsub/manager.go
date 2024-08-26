@@ -31,14 +31,21 @@ func (s *SubscriptionManager) Subscribe(req *SubscriptionRequest) {
 	if !ok {
 
 		s.Topics[req.ID] = req
-		s.Consumers[req.ID] = NewOrderConsumer(s.Redis, req, s.Connection, s.ConnLock, s.TopicLock)
+
+		switch req.Name {
+		case "order":
+			s.Consumers[req.ID] = NewOrderConsumer(s.Redis, req, s.Connection, s.ConnLock, s.TopicLock)
+
+		case "kline":
+			s.Consumers[req.ID] = NewKlineConsumer(s.Redis, req, s.Connection, s.ConnLock, s.TopicLock)
+		}
 
 	}
 
 	s.Consumers[req.ID].SendData(
 		&SubscriptionResponse{
 			Code:    	1,
-			Message: 	fmt.Sprintf("Subscription request for replay : `%s` (`x%f`)", req.Filename, req.ReplayRate),
+			Message: 	fmt.Sprintf("Subscription request for %s replay : `%s` (`x%f`)", req.Name, req.Filename, req.ReplayRate),
 			ID:    		req.ID,
 		})
 }

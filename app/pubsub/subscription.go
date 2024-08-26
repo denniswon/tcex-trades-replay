@@ -8,10 +8,12 @@ import (
 
 // SubscriptionRequest
 type SubscriptionRequest struct {
-	ID       		string `json:"id"`
-	Filename   	string `json:"filename"`
-	ReplayRate 	float32 `json:"replay_rate"`
-	Type    		string `json:"type"`
+	ID       			string 	`json:"id"`
+	Filename   		string 	`json:"filename"`
+	ReplayRate 		float32 `json:"replay_rate"`
+	Type    			string 	`json:"type"`
+	Name    			string 	`json:"name"`	// "order" or "kline"
+	Granularity 	uint16 	`json:"granularity"`
 }
 
 func (req SubscriptionRequest) Generate() SubscriptionRequest {
@@ -28,19 +30,38 @@ func (req SubscriptionRequest) Generate() SubscriptionRequest {
 		req.ReplayRate = 60.0
 	}
 
+	if req.Name == "kline" && req.Granularity == 0 {
+		req.Granularity = 60
+	}
+
 	return req
 }
 
 
 func (req *SubscriptionRequest) Validate() bool {
-	return req.Filename != "" && req.ReplayRate > 0.0 && req.ID != ""
+	ret := req.Filename != "" && req.ReplayRate > 0.0 && req.ID != "" && req.Name != ""
+	if req.Name == "kline" {
+		ret = ret && req.Granularity > 0
+	}
+	return ret
 }
 
 func (req *SubscriptionRequest) String() string {
-	return fmt.Sprintf(`{"request_id":%s,"filename":%s,"replay_rate":%f}`,
+	if req.Name == "kline" {
+		return fmt.Sprintf(`{"request_id":%s,"filename":%s,"replay_rate":%f,"name":%s,"granularity":%d}`,
+			req.ID,
+			req.Filename,
+			req.ReplayRate,
+			req.Name,
+			req.Granularity,
+		)
+	}
+
+	return fmt.Sprintf(`{"request_id":%s,"filename":%s,"replay_rate":%f,"name":%s}`,
 		req.ID,
 		req.Filename,
 		req.ReplayRate,
+		req.Name,
 	)
 }
 

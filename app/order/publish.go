@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strings"
 
 	d "github.com/denniswon/tcex/app/data"
 	q "github.com/denniswon/tcex/app/queue"
@@ -78,21 +79,42 @@ func ProcessOrderReplays(ctx context.Context, requestQueue *q.RequestQueue, repl
 								continue
 							}
 
-							_order := d.Order{}
-							err = json.Unmarshal([]byte(encoded), &_order)
-							if err != nil {
-								log.Fatalf("Failed to unmarshal cached order %s : %s\n", order, err.Error())
-								continue
-							}
+							// kline data
+							if strings.Contains(encoded, "granularity") {
 
-							log.Printf(
-								"Publishing order %s at time %d (order timestamp : %d)\n",
-								order, extime, _order.Timestamp,
-							)
+								_kline := d.Kline{}
+								err = json.Unmarshal([]byte(encoded), &_kline)
+								if err != nil {
+									log.Fatalf("Failed to unmarshal cached kline data for order id %s : %s\n", order, err.Error())
+									continue
+								}
 
-							if ok := PublishReplayOrder(order, &_order, replayQueue, redis); !ok {
-								log.Fatalf("Failed to publish replay order %s\n", order)
-								continue
+								log.Printf("Publishing kline data for order id %s at time %d\n", order, extime)
+
+								if ok := PublishReplayKline(order, &_kline, replayQueue, redis); !ok {
+									log.Fatalf("Failed to publish replay kline data for order %s\n", order)
+									continue
+								}
+
+							} else {
+
+								_order := d.Order{}
+								err = json.Unmarshal([]byte(encoded), &_order)
+								if err != nil {
+									log.Fatalf("Failed to unmarshal cached order %s : %s\n", order, err.Error())
+									continue
+								}
+
+								log.Printf(
+									"Publishing order %s at time %d (order timestamp : %d)\n",
+									order, extime, _order.Timestamp,
+								)
+
+								if ok := PublishReplayOrder(order, &_order, replayQueue, redis); !ok {
+									log.Fatalf("Failed to publish replay order %s\n", order)
+									continue
+								}
+
 							}
 
 						}
