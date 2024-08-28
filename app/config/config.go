@@ -37,6 +37,17 @@ func GetConcurrencyFactor() uint64 {
 	return parsedFactor
 }
 
+// GetUploadDirName - name of the temp directory for uploading files
+func GetUploadDirName() string {
+
+	name := Get("UploadDirName")
+	if name == "" {
+		return "uploads"
+	}
+
+	return name
+}
+
 // GetPort - Returns port number specified in `.env` file, during deployment
 func GetPort() string {
 	return Get("PORT")

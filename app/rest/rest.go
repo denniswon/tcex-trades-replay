@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sync"
 
 	"github.com/gin-contrib/cors"
@@ -17,7 +19,7 @@ import (
 )
 
 // RunHTTPServer - Holds definition for all REST API(s) to be exposed
-func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client) {
+func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client, tempDir string) {
 
 	router := gin.Default()
 
@@ -32,7 +34,7 @@ func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client) {
 			WriteBufferSize: 1024,
 			// TODO: You should never blindly trust any Origin by return true.
 			// Have the function range over a list of accepted origins.
-			CheckOrigin:     func(r *http.Request) bool { return true },
+			CheckOrigin: func(r *http.Request) bool { return true },
 		}
 
 		conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
@@ -57,19 +59,19 @@ func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client) {
 		// Log it when closing connection
 		defer func() {
 
-			log.Printf("[] Closing websocket connection\n",)
+			log.Printf("[] Closing websocket connection\n")
 
 		}()
 
 		// All topic subscription/ unsubscription requests
 		// to handled by this higher layer abstraction
 		pubsubManager := ps.SubscriptionManager{
-			Topics:     	make(map[string]*ps.SubscriptionRequest),
-			Consumers:  	make(map[string]ps.Consumer),
-			Redis:     		_redis,
-			Connection: 	conn,
-			ConnLock:   	&connLock,
-			TopicLock:  	&topicLock,
+			Topics:     make(map[string]*ps.SubscriptionRequest),
+			Consumers:  make(map[string]ps.Consumer),
+			Redis:      _redis,
+			Connection: conn,
+			ConnLock:   &connLock,
+			TopicLock:  &topicLock,
 		}
 
 		// Unsubscribe from all pubsub topics ( 3 at max ) when returning from
@@ -102,6 +104,35 @@ func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client) {
 
 			case "subscribe":
 				request := req.Generate()
+
+				if request.Filename != "trades.txt" {
+
+					_filepath := filepath.Join(tempDir, request.Filename)
+
+					// Check if file already exists
+					if _, err := os.Stat(_filepath); err == nil {
+						log.Printf("Upload file already exists : %s\n", request.Filename)
+
+					} else {
+						uploadHeader := UploadHeader{
+							Filename:  _filepath,
+							Size:      request.Size,
+							RequestID: request.ID,
+						}
+
+						filepath, bytesRead, err := HandleUpload(conn, &uploadHeader)
+
+						if err != nil {
+							log.Fatalf("[!] Failed to handle upload : %s\n", err.Error())
+							break
+						}
+
+						log.Printf("[] Received %d bytes for %s\n", bytesRead, filepath)
+						request.Filename = filepath
+					}
+
+				}
+
 				_queue.Put(&request)
 				pubsubManager.Subscribe(&request)
 
@@ -115,11 +146,10 @@ func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client) {
 
 		for {
 
-			select {
-			case err := <-_queue.Err():
-				log.Fatalf("[!] Failed to process order %s : %s\n", err.RequestId, err.Err.Error())
-				pubsubManager.Unsubscribe(pubsubManager.Topics[err.RequestId])
-			}
+			err := <-_queue.Err()
+			log.Fatalf("[!] Failed to process order %s : %s\n", err.RequestId, err.Err.Error())
+			pubsubManager.Unsubscribe(pubsubManager.Topics[err.RequestId])
+
 		}
 
 	})

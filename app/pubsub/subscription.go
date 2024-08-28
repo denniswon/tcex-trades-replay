@@ -8,12 +8,13 @@ import (
 
 // SubscriptionRequest
 type SubscriptionRequest struct {
-	ID       			string 	`json:"id"`
-	Filename   		string 	`json:"filename"`
-	ReplayRate 		float32 `json:"replay_rate"`
-	Type    			string 	`json:"type"`
-	Name    			string 	`json:"name"`	// "order" or "kline"
-	Granularity 	uint16 	`json:"granularity"`
+	ID          string  `json:"id"`
+	Filename    string  `json:"filename"`
+	Size        int     `json:"size"` // size of the file if uploaded
+	ReplayRate  float32 `json:"replay_rate"`
+	Type        string  `json:"type"`
+	Name        string  `json:"name"` // "order" or "kline"
+	Granularity uint16  `json:"granularity"`
 }
 
 func (req SubscriptionRequest) Generate() SubscriptionRequest {
@@ -36,7 +37,6 @@ func (req SubscriptionRequest) Generate() SubscriptionRequest {
 
 	return req
 }
-
 
 func (req *SubscriptionRequest) Validate() bool {
 	ret := req.Filename != "" && req.ReplayRate > 0.0 && req.ID != "" && req.Name != ""
@@ -65,10 +65,9 @@ func (req *SubscriptionRequest) String() string {
 	)
 }
 
-
 // SubscriptionResponse
 type SubscriptionResponse struct {
 	Code    uint   `json:"code"`
-	ID    	string `json:"id"`
+	ID      string `json:"id"`
 	Message string `json:"msg"`
 }

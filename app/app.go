@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	cfg "github.com/denniswon/tcex/app/config"
 	"github.com/gookit/color"
 
 	o "github.com/denniswon/tcex/app/order"
@@ -18,6 +19,15 @@ func Run(configFile string) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	requestQueue, replayQueue, _redis := bootstrap(configFile)
+
+	// Create a temporary directory
+	tempDir, err := os.MkdirTemp("", cfg.GetUploadDirName())
+
+	if err != nil {
+		log.Print(color.Red.Sprintf("[!] Failed to create temporary directory for uploads : %s", err.Error()))
+		panic(err)
+	}
+	defer os.RemoveAll(tempDir)
 
 	// Attempting to listen to Ctrl+C signal
 	// and when received gracefully shutting down the service
@@ -50,5 +60,5 @@ func Run(configFile string) {
 	go o.ProcessOrderReplays(ctx, requestQueue, replayQueue, _redis)
 
 	// Starting http server on main thread
-	rest.RunHTTPServer(requestQueue, _redis)
+	rest.RunHTTPServer(requestQueue, _redis, tempDir)
 }

@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"log"
+	"os"
 
 	cfg "github.com/denniswon/tcex/app/config"
 	q "github.com/denniswon/tcex/app/queue"
@@ -30,6 +31,13 @@ func bootstrap(configFile string) (*q.RequestQueue, *q.ReplayQueue, *redis.Clien
 	requestQueue := q.NewRequestQueue(_redis)
 	// order replay publishing queue
 	replayQueue := q.NewReplayQueue()
+
+	// Create a temporary directory for file uploads
+	tempDir, err := os.MkdirTemp("", "uploads-")
+	if err != nil {
+		panic(err)
+	}
+	defer os.RemoveAll(tempDir)
 
 	return requestQueue, replayQueue, _redis
 }
