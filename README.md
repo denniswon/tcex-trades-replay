@@ -69,8 +69,10 @@ For requesting and listening to orders being replayed, connect to `/v1/ws` endpo
 ```json
 {
   "type": "subscribe",
+  "name": "order", // "order" or "kline"
   "filename": "trades.txt", // optional, defaults to 'trades.txt' if not supplied.
-  "replay_rate": 60 // x60 replay rate. optional, defaults to 60.
+  "replay_rate": 60, // optional, defaults to 60 for x60 replay rate.
+  "granularity": 60 // optional, defaults to 60. used only for "kline" requests. in seconds.
 }
 ```
 

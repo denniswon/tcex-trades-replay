@@ -80,6 +80,7 @@ func (k *KlineConsumer) Send(msg string) {
 		Open								float32 `json:"open"`  				// opening price (first trade) in the bucket interval
 		Close 							float32 `json:"close"`  			// closing price (last trade) in the bucket interval
 		Volume 							int64 	`json:"volume"`  			// volume of trading activity during the bucket interval
+		Turnover						float64 `json:"turnover"`			// total usd volume of trading activity during the bucket interval
 		Granularity         uint16  `json:"granularity"`	// granularity field is in "seconds"
 	}
 

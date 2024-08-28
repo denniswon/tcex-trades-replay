@@ -23,6 +23,7 @@
     "@uireact/view": "^2.10.0",
     "framer-motion": "^11.2.2",
     "isomorphic-ws": "^5.0.0",
+    "klinecharts": "^9.8.10",
     "next": "14.2.3",
     "polished": "^4.3.1",
     "react": "^18",

@@ -10,7 +10,7 @@ import { useState } from "react";
 
 export default function Home() {
   const [wsError, setWsError] = useState<any>();
-  const [mode, _setMode] = useState<"order" | "kline">("order");
+  const [mode, setMode] = useState<"order" | "kline">("kline");
 
   const { ws, open, messages, clearMessages } = useWs({
     url: "ws://localhost:8080/v1/ws",
@@ -33,6 +33,7 @@ export default function Home() {
         name: mode,
         filename: data.filename,
         replay_rate: Number(data.replay_rate),
+        granularity: data.granularity,
       };
       ws.send(JSON.stringify(body));
     } catch (error) {
@@ -66,11 +67,16 @@ export default function Home() {
         <UiHeading level={5}>TCEX order replay server demo</UiHeading>
       </Box>
       <Container>
-        <Form onSubmit={replayRequestHandler} disabled={!open} />
+        <Form
+          onSubmit={replayRequestHandler}
+          disabled={!open}
+          mode={mode}
+          onSetMode={setMode}
+        />
       </Container>
       <Container>
         <UiText fontStyle="bold" margin={{ all: "four" }}>
-          Orders
+          {mode.replace(/^.{1}/g, mode[0].toUpperCase())}
         </UiText>
         {mode === "order" ? (
           <Orders

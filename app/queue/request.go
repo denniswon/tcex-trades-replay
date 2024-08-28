@@ -18,10 +18,10 @@ import (
 )
 
 type Order struct {
-	RequestId 		string
-	OrderNumber 	uint64
-	ExecuteTime 	int64
-	EOF 					bool
+	RequestId   string
+	OrderNumber uint64
+	ExecuteTime int64
+	EOF         bool
 }
 
 func (o *Order) String() string {
@@ -37,10 +37,9 @@ func (o *Order) ID() string {
 	return fmt.Sprintf("%s:%d", o.RequestId, o.OrderNumber)
 }
 
-
 type RequestError struct {
-	RequestId 	string
-	Err   	 		error
+	RequestId string
+	Err       error
 }
 
 func (m *RequestError) Error() string {
@@ -54,28 +53,28 @@ type FileRef struct {
 
 // Client defines typed wrappers for the Ethereum RPC API.
 type RequestQueue struct {
-	stopped     			bool
-	requests 					map[string]*ps.SubscriptionRequest
-	files 						map[string]*FileRef
-	requestChannel 		chan string
-	stopChannel 			chan string
-	orderChannel 			chan Order
-	errorChannel		 	chan RequestError
-	redis    					*redis.Client
-	mutex 						*sync.RWMutex
+	stopped        bool
+	requests       map[string]*ps.SubscriptionRequest
+	files          map[string]*FileRef
+	requestChannel chan string
+	stopChannel    chan string
+	orderChannel   chan Order
+	errorChannel   chan RequestError
+	redis          *redis.Client
+	mutex          *sync.RWMutex
 }
 
 // NewClient creates a client that uses the given RPC client.
 func NewRequestQueue(_redis *redis.Client) *RequestQueue {
 	client := &RequestQueue{
-		stopped:					false,
-		stopChannel:      make(chan string, 1),
-		errorChannel: 		make(chan RequestError),
-		requestChannel: 	make(chan string),
-		files: 						make(map[string]*FileRef),
-		requests: 				make(map[string]*ps.SubscriptionRequest),
-		redis:    				_redis,
-		mutex:      			&sync.RWMutex{},
+		stopped:        false,
+		stopChannel:    make(chan string, 1),
+		errorChannel:   make(chan RequestError),
+		requestChannel: make(chan string),
+		files:          make(map[string]*FileRef),
+		requests:       make(map[string]*ps.SubscriptionRequest),
+		redis:          _redis,
+		mutex:          &sync.RWMutex{},
 	}
 	return client
 }
@@ -98,7 +97,7 @@ func (q *RequestQueue) Remove(requestId string) {
 	q.mutex.RLock()
 	defer q.mutex.RUnlock()
 
- 	request := q.requests[requestId]
+	request := q.requests[requestId]
 	if request != nil {
 		delete(q.requests, requestId)
 	}
@@ -183,7 +182,9 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 	var pairs []interface{}
 	orders := []Order{}
 
-	var kline d.Kline = d.Kline{}
+	var kline d.Kline = d.Kline{
+		Granularity: request.Granularity,
+	}
 
 	for scanner.Scan() {
 
@@ -199,32 +200,39 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 		}
 
 		if indexTime == 0 {
-			indexTime = order.Timestamp * 1000	// convert to microseconds
+			indexTime = order.Timestamp * 1000 // convert to microseconds
 		}
 
 		f, _ := strconv.ParseFloat(order.Price, 32)
 		price := float64(f)
 
-		if kline.Timestamp == 0 || kline.Timestamp + int64(request.Granularity) <= order.Timestamp{
+		if kline.Timestamp == 0 || kline.Timestamp+int64(request.Granularity*1000) <= order.Timestamp {
 			kline.Timestamp = order.Timestamp
+
 			kline.Low = price
 			kline.High = price
 			kline.Open = price
 			kline.Close = price
+
 			if order.Aggressor == "ask" {
 				kline.Volume = int64(order.Quantity) * -1
 			} else {
 				kline.Volume = int64(order.Quantity)
 			}
+
+			kline.Turnover = price * float64(order.Quantity)
 		} else {
 			kline.Low = math.Min(kline.Low, price)
 			kline.High = math.Max(kline.Low, price)
 			kline.Close = price
+
 			if order.Aggressor == "ask" {
 				kline.Volume -= int64(order.Quantity)
 			} else {
 				kline.Volume += int64(order.Quantity)
 			}
+
+			kline.Turnover += price * float64(order.Quantity)
 		}
 
 		pairs = append(pairs, fmt.Sprintf("%s:%d", request.ID, orderNumber))
@@ -236,13 +244,13 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 			pairs = append(pairs, order.ToJSON())
 		}
 
-		lastOrderExecuteTime = currTime + int64(float32(order.Timestamp * 1000 - indexTime) / request.ReplayRate)
+		lastOrderExecuteTime = currTime + int64(float32(order.Timestamp*1000-indexTime)/request.ReplayRate)
 
-		orders = append(orders, Order {
-			RequestId: request.ID,
+		orders = append(orders, Order{
+			RequestId:   request.ID,
 			OrderNumber: orderNumber,
 			ExecuteTime: lastOrderExecuteTime,
-			EOF: false,
+			EOF:         false,
 		})
 
 		orderNumber++
@@ -250,11 +258,11 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 	}
 
 	// dummy last order to signal replay finished
-	orders = append(orders, Order {
-		RequestId: request.ID,
+	orders = append(orders, Order{
+		RequestId:   request.ID,
 		OrderNumber: orderNumber,
-		ExecuteTime: lastOrderExecuteTime + 1000,	// 1 millisecond buffer for replay finished message
-		EOF: true,
+		ExecuteTime: lastOrderExecuteTime + 1000, // 1 millisecond buffer for replay finished message
+		EOF:         true,
 	})
 
 	if len(pairs) > 0 {
@@ -327,9 +335,9 @@ func (q *RequestQueue) Error(requestId string, err error) {
 		delete(q.files, request.Filename)
 	}
 
-	q.errorChannel <- RequestError {
+	q.errorChannel <- RequestError{
 		RequestId: requestId,
-		Err: err,
+		Err:       err,
 	}
 }
 

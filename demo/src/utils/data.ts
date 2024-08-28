@@ -29,6 +29,7 @@ export const isKline = (k: any): k is Kline => {
     "close" in k &&
     "volume" in k &&
     "granularity" in k &&
+    "turnover" in k &&
     "timestamp" in k
   );
 };

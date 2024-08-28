@@ -29,6 +29,11 @@ const Orders = ({
     () =>
       messages
         .map((event) => {
+          if ("code" in JSON.parse(event.data || null)) {
+            console.log(event.data);
+            return null;
+          }
+
           const order = tryParse(isOrder, event.data);
           if (order) {
             return order;

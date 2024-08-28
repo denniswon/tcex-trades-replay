@@ -5,5 +5,6 @@ export type Kline = {
   open: number;
   close: number;
   volume: number;
+  turnover: number;
   granularity: number;
 };

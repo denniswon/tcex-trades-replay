@@ -13,7 +13,8 @@ type Kline struct {
 	High 								float64 `json:"high"`  				// highest price during the bucket interval
 	Open								float64 `json:"open"`  				// opening price (first trade) in the bucket interval
 	Close 							float64 `json:"close"`  			// closing price (last trade) in the bucket interval
-	Volume 							int64 	`json:"volume"`  			// volume of trading activity during the bucket interval
+	Volume 							int64 	`json:"volume"`  			// net quantity volume of trading activity during the bucket interval
+	Turnover						float64 `json:"turnover"`			// total usd volume of trading activity during the bucket interval
 	Granularity         uint16  `json:"granularity"`	// granularity field is in "seconds"
 }
 
@@ -25,13 +26,14 @@ func (k *Kline) MarshalBinary() ([]byte, error) {
 
 // MarshalJSON - Custom JSON encoder
 func (k *Kline) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`{"timestamp":%d,"low":%f,"high":%f,"open":%f,"close":%f,"volume":%d,"granularity":%d}`,
+	return []byte(fmt.Sprintf(`{"timestamp":%d,"low":%f,"high":%f,"open":%f,"close":%f,"volume":%d,"turnover":%f,"granularity":%d}`,
 		k.Timestamp,
 		k.Low,
 		k.High,
 		k.Open,
 		k.Close,
 		k.Volume,
+		k.Turnover,
 		k.Granularity,
 	)), nil
 }

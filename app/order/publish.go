@@ -28,7 +28,7 @@ func ProcessOrderReplays(ctx context.Context, requestQueue *q.RequestQueue, repl
 	// There is no upper limit on the number of tasks queued, other than the limits of system resources
 	// If the number of inbound tasks is too many to even queue for pending processing, then we should distribute workload over multiple systems,
 	// and/or storing input for pending processing in intermediate storage such as a distributed message queue, etc.
-	wp := workerpool.New(/* runtime.NumCPU() * int(cfg.GetConcurrencyFactor()) */ 1)
+	wp := workerpool.New( /* runtime.NumCPU() * int(cfg.GetConcurrencyFactor()) */ 1)
 	defer wp.Stop()
 
 	for {

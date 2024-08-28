@@ -1781,6 +1781,11 @@ keyv@^4.5.3:
   dependencies:
     json-buffer "3.0.1"
 
+klinecharts@^9.8.10:
+  version "9.8.10"
+  resolved "https://registry.yarnpkg.com/klinecharts/-/klinecharts-9.8.10.tgz#cc177e8a016e265e36c5a1a47ff4a5ba07f4d225"
+  integrity sha512-4h0u749uprwaw8CifpegpjHzHnw/I9VTYb2wkUtBQqWnUPvxS4IpkkyMAwPcYbuzXWoqfqFGO02sRd3QDW4sbQ==
+
 language-subtag-registry@^0.3.20:
   version "0.3.23"
   resolved "https://registry.yarnpkg.com/language-subtag-registry/-/language-subtag-registry-0.3.23.tgz#23529e04d9e3b74679d70142df3fd2eb6ec572e7"
