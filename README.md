@@ -48,21 +48,36 @@ The webserver has been designed with concurrency and scalability in mind. That i
 
 This way, the server is able to handle multiple requests concurrently without blocking any of them while minimizing the resources used and modularity among the subcomponents for easier incremental optimization in the future.
 
-### Demo
+The server is built in [Golang](https://go.dev/), using [Gin](https://github.com/gin-gonic/gin) http server. This project uses **goroutines**, **go channels**, and **Threadpool** for concurrency and pipelining.
 
-#### Replay Order at x60 rate (demo video below trimmed in the middle due to github readme upload size limit)
+## Frontend
+
+- [Next.js](https://nextjs.org/docs)
+- [React](https://react.dev/)
+- [Typescript](https://www.typescriptlang.org/)
+- [Styled Components](https://styled-components.com/)
+- [UiReact](https://uireact.io/)
+- [Klinechart](https://klinecharts.com/en-US/)
+
+## Demo
+
+### Kline mode with replay rate of x60
+
+<https://github.com/user-attachments/assets/c3a08116-70b7-491f-a130-1fd7c1d66a78>
+
+### Replay Order at x60 rate (demo video below trimmed in the middle due to github readme upload size limit)
 
 <https://github.com/user-attachments/assets/d3978f17-d6dd-4ac9-983e-83805b0af578>
 
-#### Replay Order at x600 rate
+### Replay Order at x600 rate
 
 <https://github.com/user-attachments/assets/1b7cf986-9e96-458c-9a08-425ccb995e3e>
 
-#### Replay Order at x0.1 rate
+### Replay Order at x0.1 rate
 
 <https://github.com/user-attachments/assets/c22d1b8f-9b17-45e0-9ee7-086154f52b38>
 
-### Subscribing with Order Replay Requests
+## Subscribing with Order Replay Requests
 
 For requesting and listening to orders being replayed, connect to `/v1/ws` endpoint using websocket client library & once connected, send **subscription** request with payload _( JSON encoded )_
 
@@ -93,6 +108,21 @@ Real-time notification about orders being replayed at requested rate:
   "quantity": 200,
   "aggressor": "ask",
   "timestamp": 1722527801638
+}
+```
+
+Real-time Kline OHLC data of order replay:
+
+```json
+{
+  "timestamp": 1722527800000, // bucket start time in unix timestamp
+  "low": 1340.0, // lowest price during the bucket interval
+  "high": 1348.41, // highest price during the bucket interval
+  "open": 1340.0, // opening price (first trade) in the bucket interval
+  "close": 1347.41, // closing price (last trade) in the bucket interval
+  "volume": 5, // net quantity volume of trading activity during the bucket interval
+  "turnover": 587647.4, // total usd volume of trading activity during the bucket interval
+  "granularity": 60 // granularity field is in "seconds"
 }
 ```
 
