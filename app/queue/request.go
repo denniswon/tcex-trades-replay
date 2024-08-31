@@ -151,7 +151,7 @@ func (q *RequestQueue) HandleRequest(requestId string) error {
 	if q.files[request.Filename] == nil {
 		file, err := os.Open(request.Filename)
 		if err != nil {
-			log.Fatalf("Error opening file : %s\n", err.Error())
+			log.Printf("Error opening file : %s\n", err.Error())
 			return err
 		}
 		q.files[request.Filename] = &FileRef{
@@ -195,7 +195,7 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 		var order d.Order
 		err := json.Unmarshal([]byte(scanner.Text()), &order)
 		if err != nil {
-			log.Fatalf("Failed to decode order data to JSON : %s\n", err.Error())
+			log.Printf("Failed to decode order data to JSON : %s\n", err.Error())
 			return err
 		}
 
@@ -268,7 +268,7 @@ func (q *RequestQueue) Run(request *ps.SubscriptionRequest) error {
 	if len(pairs) > 0 {
 		_, err := q.redis.MSet(context.Background(), pairs...).Result()
 		if err != nil {
-			log.Fatalf("Failed to cache order for request %s order number %d : %s\n",
+			log.Printf("Failed to cache order for request %s order number %d : %s\n",
 				request.ID, orderNumber, err.Error(),
 			)
 			return err

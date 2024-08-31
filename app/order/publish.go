@@ -66,7 +66,7 @@ func ProcessOrderReplays(ctx context.Context, requestQueue *q.RequestQueue, repl
 							log.Println("Publishing EOF for replay")
 
 							if ok := PublishReplayEOF(order, replayQueue, redis); !ok {
-								log.Fatalf("Failed to publish replay eof %s\n", order)
+								log.Printf("Failed to publish replay eof %s\n", order)
 								continue
 							}
 
@@ -75,7 +75,7 @@ func ProcessOrderReplays(ctx context.Context, requestQueue *q.RequestQueue, repl
 							// retrieve the cached order data
 							encoded, err := redis.Get(context.Background(), order).Result()
 							if err != nil {
-								log.Fatalf("Failed to retrieve cached order %s : %s\n", order, err.Error())
+								log.Printf("Failed to retrieve cached order %s : %s\n", order, err.Error())
 								continue
 							}
 
@@ -85,14 +85,14 @@ func ProcessOrderReplays(ctx context.Context, requestQueue *q.RequestQueue, repl
 								_kline := d.Kline{}
 								err = json.Unmarshal([]byte(encoded), &_kline)
 								if err != nil {
-									log.Fatalf("Failed to unmarshal cached kline data for order id %s : %s\n", order, err.Error())
+									log.Printf("Failed to unmarshal cached kline data for order id %s : %s\n", order, err.Error())
 									continue
 								}
 
 								log.Printf("Publishing kline data for order id %s at time %d\n", order, extime)
 
 								if ok := PublishReplayKline(order, &_kline, replayQueue, redis); !ok {
-									log.Fatalf("Failed to publish replay kline data for order %s\n", order)
+									log.Printf("Failed to publish replay kline data for order %s\n", order)
 									continue
 								}
 
@@ -101,7 +101,7 @@ func ProcessOrderReplays(ctx context.Context, requestQueue *q.RequestQueue, repl
 								_order := d.Order{}
 								err = json.Unmarshal([]byte(encoded), &_order)
 								if err != nil {
-									log.Fatalf("Failed to unmarshal cached order %s : %s\n", order, err.Error())
+									log.Printf("Failed to unmarshal cached order %s : %s\n", order, err.Error())
 									continue
 								}
 
@@ -111,7 +111,7 @@ func ProcessOrderReplays(ctx context.Context, requestQueue *q.RequestQueue, repl
 								)
 
 								if ok := PublishReplayOrder(order, &_order, replayQueue, redis); !ok {
-									log.Fatalf("Failed to publish replay order %s\n", order)
+									log.Printf("Failed to publish replay order %s\n", order)
 									continue
 								}
 

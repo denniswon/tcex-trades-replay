@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-export function useWs<T>({
+export function useWs({
   url,
   onError,
 }: {

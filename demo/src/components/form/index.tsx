@@ -1,6 +1,8 @@
 import { useTheme } from "@/contexts/theme";
 import { useFormValidate } from "@/hooks/useFormValidate";
 import { Theme } from "@uireact/foundation";
+import { UiReactViewRotating } from "@uireact/framer-animations";
+import { UiIcon } from "@uireact/icons";
 import { UiText } from "@uireact/text";
 import { normalize, transitions } from "polished";
 import { useMemo, useState } from "react";
@@ -12,14 +14,16 @@ import DropDown from "../dropdown";
 import { ErrorTextbox } from "../error";
 import Switch from "../switch";
 import schema from "./schema";
+import FileUpload from "./upload";
 
-export type FormInputSchema = InferType<typeof schema> & {
-  granularity?: number;
+export type FormInputData = InferType<typeof schema> & {
+  file: File;
+  granularity: number;
 };
 
 const FormInput = styled.input<{ theme: Theme; disabled: boolean }>`
-  height: ${(props: any) => (props.size === "large" ? "36px" : "24px")};
-  margin: 8px;
+  height: ${(props: any) => (props.size === "large" ? "36px" : "26px")};
+  margin-top: 10px;
   padding: 2px;
   width: 30%;
   border: 1px solid #ccc;
@@ -31,7 +35,7 @@ const FormInput = styled.input<{ theme: Theme; disabled: boolean }>`
 const FormButton = styled(Button)`
   ${normalize()}
   ${transitions(["background"], "0.3s")}
-  margin: 0.4rem 0 0 0.5rem;
+  margin: 0.4rem 0 0 0.6rem;
 `;
 
 const StyledForm = styled.form`
@@ -47,7 +51,7 @@ const Container = styled.div`
   flex: 1;
 `;
 
-const granularityOptions = [
+export const granularityOptions = [
   { label: "1m", value: 60 },
   { label: "5m", value: 300 },
   { label: "15m", value: 900 },
@@ -60,12 +64,14 @@ const Form = ({
   onSubmit,
   onError,
   disabled,
+  uploading,
   mode,
   onSetMode,
 }: {
-  onSubmit: (data: FormInputSchema) => void;
+  onSubmit: (data: FormInputData) => void;
   onError?: (error: any) => void;
   disabled?: boolean;
+  uploading?: boolean;
   mode?: "order" | "kline";
   onSetMode?: (mode: "order" | "kline") => void;
 }) => {
@@ -75,33 +81,34 @@ const Form = ({
     register,
     handleSubmit,
     formState: { isSubmitting, isLoading, errors },
-  } = useForm({
+  } = useForm<FormInputData>({
     resolver: resolver,
   });
 
   const _disabled = useMemo(
-    () => !!disabled || isSubmitting || isLoading,
-    [disabled, isSubmitting, isLoading]
+    () => !!disabled || isSubmitting || isLoading || uploading,
+    [disabled, isSubmitting, isLoading, uploading]
   );
 
-  const [filenameError, setFilenameError] = useState<string | undefined>(
-    errors?.filename?.message?.toString()
-  );
+  const [file, setFile] = useState<File | undefined>();
+  const [fileError, setFileError] = useState<string | undefined>();
   const [replayRateError, setReplayRateError] = useState<string | undefined>(
     errors?.replay_rate?.message?.toString()
   );
 
-  const [granularity, setGranularity] = useState<number>();
+  const [granularity, setGranularity] = useState<number>(
+    granularityOptions[0].value
+  );
 
   const clearError = () => {
-    setFilenameError(undefined);
+    setFileError(undefined);
     setReplayRateError(undefined);
   };
 
-  const _onSubmit = async (data: FormInputSchema) => {
+  const _onSubmit = async (data: FormInputData) => {
     try {
       clearError();
-      onSubmit({ ...data, granularity });
+      onSubmit({ ...data, file, granularity });
     } catch (error) {
       console.error(error);
       onError?.(error);
@@ -117,17 +124,11 @@ const Form = ({
           checked={mode === "kline"}
         />
         <Row>
-          <Row style={{ flex: 1 }}>
-            <FormInput
-              theme={theme}
+          <Row style={{ flex: 1, marginTop: "0.6rem" }}>
+            <FileUpload
               disabled={_disabled}
-              style={{
-                border:
-                  !_disabled && filenameError ? "1px solid red" : undefined,
-              }}
-              type="text"
-              placeholder="Filename (trades.txt)"
-              {...register("filename")}
+              onError={(err) => setFileError(err.message)}
+              onFileSelected={setFile}
             />
             <FormInput
               theme={theme}
@@ -155,7 +156,7 @@ const Form = ({
               <DropDown<number>
                 disabled={_disabled}
                 options={granularityOptions}
-                onOptionSelected={(value) => setGranularity(value)}
+                onOptionSelected={setGranularity}
                 defaultValue={{ label: "1m", value: 60 }}
               />
             </Row>
@@ -164,9 +165,17 @@ const Form = ({
 
         <FormButton type="submit" disabled={_disabled}>
           Submit
+          {uploading && (
+            <UiIcon
+              icon="LoadingSpinner"
+              category="tertiary"
+              size="small"
+              motion={UiReactViewRotating}
+            />
+          )}
         </FormButton>
       </StyledForm>
-      {filenameError && <ErrorTextbox message={filenameError} />}
+      {fileError && <ErrorTextbox message={fileError} />}
       {replayRateError && <ErrorTextbox message={replayRateError} />}
     </Container>
   );

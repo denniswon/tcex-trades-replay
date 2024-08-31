@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/gin-contrib/cors"
+	"github.com/google/uuid"
 
 	cfg "github.com/denniswon/tcex/app/config"
 	ps "github.com/denniswon/tcex/app/pubsub"
@@ -22,9 +23,49 @@ import (
 func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client, tempDir string) {
 
 	router := gin.Default()
+	router.MaxMultipartMemory = 8 << 20
 
 	// enabled cors
 	router.Use(cors.Default())
+
+	grp := router.Group("/v1")
+
+	{
+
+		// For checking the service's syncing status
+		grp.POST("/upload", func(c *gin.Context) {
+
+			// single file
+			file, _ := c.FormFile("file")
+
+			log.Printf("Uploading File: %s (size: %d)\n", file.Filename, file.Size)
+
+			_filepath := filepath.Join(tempDir, file.Filename)
+
+			header := ps.UploadHeader{
+				ID:       uuid.New().String(),
+				Filepath: _filepath,
+				Size:     file.Size,
+			}
+
+			// Check if file already exists
+			if _, err := os.Stat(_filepath); err == nil {
+
+				log.Printf("Upload file already exists : %s %d\n", header.Filepath, header.Size)
+
+				c.JSON(http.StatusOK, header)
+
+				return
+
+			}
+
+			c.SaveUploadedFile(file, header.Filepath)
+
+			c.JSON(http.StatusOK, header)
+
+		})
+
+	}
 
 	router.GET("/v1/ws", func(c *gin.Context) {
 
@@ -95,7 +136,7 @@ func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client, tempDir string)
 			if err := conn.ReadJSON(&req); err != nil {
 
 				log.Printf("[!] Failed to read message : %s\n", err.Error())
-				break
+				continue
 
 			}
 
@@ -103,38 +144,25 @@ func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client, tempDir string)
 			switch req.Type {
 
 			case "subscribe":
-				request := req.Generate()
 
-				if request.Filename != "trades.txt" {
+				// Validating incoming request on websocket subscription channel
+				if !req.Validate() {
+					// -- Critical section of code begins
+					//
+					// Attempting to write to shared network connection
+					connLock.Lock()
 
-					_filepath := filepath.Join(tempDir, request.Filename)
-
-					// Check if file already exists
-					if _, err := os.Stat(_filepath); err == nil {
-						log.Printf("Upload file already exists : %s\n", request.Filename)
-
-					} else {
-						uploadHeader := UploadHeader{
-							Filename:  _filepath,
-							Size:      request.Size,
-							RequestID: request.ID,
-						}
-
-						filepath, bytesRead, err := HandleUpload(conn, &uploadHeader)
-
-						if err != nil {
-							log.Fatalf("[!] Failed to handle upload : %s\n", err.Error())
-							break
-						}
-
-						log.Printf("[] Received %d bytes for %s\n", bytesRead, filepath)
-						request.Filename = filepath
+					if err := conn.WriteJSON(&ps.SubscriptionResponse{Code: 0, Message: "Bad Payload"}); err != nil {
+						log.Printf("[!] Failed to write message : %s\n", err.Error())
 					}
 
+					connLock.Unlock()
+					// -- ends here
+					break
 				}
 
-				_queue.Put(&request)
-				pubsubManager.Subscribe(&request)
+				_queue.Put(&req)
+				pubsubManager.Subscribe(&req)
 
 			case "unsubscribe":
 				_queue.Remove(req.ID)
@@ -147,7 +175,7 @@ func RunHTTPServer(_queue *q.RequestQueue, _redis *redis.Client, tempDir string)
 		for {
 
 			err := <-_queue.Err()
-			log.Fatalf("[!] Failed to process order %s : %s\n", err.RequestId, err.Err.Error())
+			log.Printf("[!] Failed to process order %s : %s\n", err.RequestId, err.Err.Error())
 			pubsubManager.Unsubscribe(pubsubManager.Topics[err.RequestId])
 
 		}

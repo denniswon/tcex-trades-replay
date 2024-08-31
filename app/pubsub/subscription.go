@@ -2,29 +2,52 @@ package pubsub
 
 import (
 	"fmt"
+	"log"
+	"os"
 
 	"github.com/google/uuid"
 )
+
+// UploadHeader
+type UploadHeader struct {
+	ID       string `json:"id"`
+	Filepath string `json:"filepath"`
+	Size     int64  `json:"size"` // size of the file if uploaded
+}
+
+func (header *UploadHeader) Generate() *UploadHeader {
+
+	if header.ID == "" {
+		header.ID = uuid.New().String()
+	}
+
+	return header
+}
+
+func (header *UploadHeader) String() string {
+
+	return fmt.Sprintf(`{"id":%s,"filepath":%s,"size":%d}`,
+		header.ID,
+		header.Filepath,
+		header.Size,
+	)
+
+}
 
 // SubscriptionRequest
 type SubscriptionRequest struct {
 	ID          string  `json:"id"`
 	Filename    string  `json:"filename"`
-	Size        int     `json:"size"` // size of the file if uploaded
 	ReplayRate  float32 `json:"replay_rate"`
 	Type        string  `json:"type"`
 	Name        string  `json:"name"` // "order" or "kline"
 	Granularity uint16  `json:"granularity"`
 }
 
-func (req SubscriptionRequest) Generate() SubscriptionRequest {
+func (req *SubscriptionRequest) Generate() *SubscriptionRequest {
 
 	if req.ID == "" {
 		req.ID = uuid.New().String()
-	}
-
-	if req.Filename == "" {
-		req.Filename = "trades.txt"
 	}
 
 	if req.ReplayRate == 0.0 {
@@ -43,6 +66,16 @@ func (req *SubscriptionRequest) Validate() bool {
 	if req.Name == "kline" {
 		ret = ret && req.Granularity > 0
 	}
+
+	// Check if file exists
+	if _, err := os.Stat(req.Filename); err != nil {
+
+		log.Printf("Request input file does not exist : %s\n", req.Filename)
+
+		ret = false
+
+	}
+
 	return ret
 }
 

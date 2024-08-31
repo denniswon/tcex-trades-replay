@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Sen } from "next/font/google";
 
+import ReactQueryProvider from "@/contexts/query";
 import { ThemeProvider } from "@/contexts/theme";
 import { GlobalStyles, StyledComponentsRegistry, ViewWrapper } from "@/styles";
 import "./global.css";
@@ -27,7 +28,9 @@ export default function RootLayout({
         <StyledComponentsRegistry>
           <GlobalStyles />
           <ViewWrapper>
-            <ThemeProvider>{children}</ThemeProvider>
+            <ThemeProvider>
+              <ReactQueryProvider>{children}</ReactQueryProvider>
+            </ThemeProvider>
           </ViewWrapper>
         </StyledComponentsRegistry>
       </body>
